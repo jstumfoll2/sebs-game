@@ -121,8 +121,7 @@ async fn main() {
                     ctx.sfx.pop();
                     ctx.voice.say("Pick a game!");
                     screen = Screen::Menu;
-                } else if ctx.input.tapped(hud::repeat_rect()) {
-                    ctx.sfx.pop();
+                } else if ctx.input.tapped(hud::repeat_rect()) {                    ctx.sfx.pop();
                     let prompt = game.prompt();
                     ctx.voice.say(&prompt);
                 } else {
