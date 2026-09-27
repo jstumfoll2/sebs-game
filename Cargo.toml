@@ -1,0 +1,12 @@
+[package]
+name = "sebastians-game"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+macroquad = "0.4"
+
+# Build dependencies (macroquad etc.) with optimizations even in debug mode,
+# so `cargo run` stays smooth while our own code still compiles fast.
+[profile.dev.package."*"]
+opt-level = 2
