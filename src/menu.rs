@@ -2,7 +2,7 @@
 
 use crate::art::{self, Paint, Thing};
 use crate::ctx::Ctx;
-use crate::games::letters::letter_name;
+use crate::alphabet::{self, capitalize};
 use macroquad::prelude::*;
 
 const TITLE: &str = "Sebastian's Game";
@@ -42,7 +42,10 @@ impl Menu {
             if ch.is_alphabetic() && hit.contains(p) {
                 self.bounce[i] = 1.0;
                 ctx.sfx.pop();
-                ctx.voice.say(letter_name(*ch));
+                if let Some(l) = alphabet::get(*ch) {
+                    // "Ess! Ess says sss."
+                    ctx.voice.say(&format!("{}! {} says {}.", capitalize(l.name), capitalize(l.name), l.sound()));
+                }
             }
         }
         None

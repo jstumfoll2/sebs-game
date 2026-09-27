@@ -1,9 +1,15 @@
-//! Find the letter: the voice asks for a letter, Sebastian taps it.
+//! Find the letter: a picture clue appears ("ball"), the voice says the letter and its sound
+//! ("Find the letter bee! Buh, buh, ball!"), and Sebastian taps the matching letter.
 //! Starts with a handful of letters and slowly adds more.
+//!
+//! Hints: after one miss the clue's word appears (its first letter is the answer!);
+//! after two misses the right card glows.
 
 use super::{celebration_over, fade, shuffle, MiniGame, Phase, Progress};
-use crate::art::{self, Paint, Thing};
+use crate::alphabet::{self, capitalize, Letter};
+use crate::art::{self, Paint};
 use crate::ctx::Ctx;
+use crate::pictures;
 use macroquad::prelude::*;
 
 /// The order letters get introduced. The first few are the ones in play at level 1.
@@ -41,6 +47,10 @@ impl Letters {
         game
     }
 
+    fn target(&self) -> &'static Letter {
+        alphabet::get(self.target).expect("letters are A-Z")
+    }
+
     fn new_round(&mut self) {
         let lvl = (self.progress.level - 1) as usize;
         let pool: Vec<char> = LETTER_ORDER.chars().take(POOL_SIZE[lvl]).collect();
@@ -68,7 +78,14 @@ impl Letters {
     }
 
     fn rects(&self) -> Vec<Rect> {
-        super::row_of_cards(self.choices.len(), 0.9, 0.36, 0.58)
+        super::row_of_cards(self.choices.len(), 0.9, 0.3, 0.7)
+    }
+
+    /// The picture clue card at the top.
+    fn clue_rect() -> Rect {
+        let (w, h) = (screen_width(), screen_height());
+        let size = h * 0.34;
+        Rect::new(w / 2.0 - size / 2.0, h * 0.08, size, size)
     }
 }
 
@@ -79,7 +96,13 @@ impl MiniGame for Letters {
     }
 
     fn prompt(&self) -> String {
-        format!("Find the letter {}!", letter_name(self.target))
+        let l = self.target();
+        let s = l.sound();
+        if l.letter == 'X' {
+            format!("Find the letter ex! {s}, like the end of box!")
+        } else {
+            format!("Find the letter {}! {s}, {s}, {}!", l.name, l.word)
+        }
     }
 
     fn update(&mut self, ctx: &mut Ctx) {
@@ -95,23 +118,31 @@ impl MiniGame for Letters {
                 }
             }
             Phase::Playing => {
+                // Tapping the picture clue says the question again.
+                if ctx.input.tapped(Self::clue_rect()) {
+                    ctx.sfx.pop();
+                    ctx.voice.say(&self.prompt());
+                    return;
+                }
                 let rects = self.rects();
                 if let Some(i) = rects.iter().position(|r| ctx.input.tapped(*r)) {
-                    let tapped = self.choices[i];
-                    if tapped == self.target {
+                    let target = self.target();
+                    if self.choices[i] == self.target {
                         let leveled = self.progress.record(self.first_try);
-                        let name = letter_name(tapped);
-                        let (word, _) = word_for(tapped);
-                        ctx.correct(rects[i].center(), &format!("{name}! {name} is for {word}!"), leveled);
-                        self.phase = Phase::Celebrating(2.6);
+                        let words = format!("{}! {}", capitalize(target.name), target.teach());
+                        ctx.correct(rects[i].center(), &words, leveled);
+                        self.phase = Phase::Celebrating(1.0);
                     } else {
+                        let tapped = alphabet::get(self.choices[i]).expect("letters are A-Z");
                         self.first_try = false;
                         self.misses += 1;
                         self.shake[i] = 1.0;
                         ctx.wrong(&format!(
-                            "That's {}. Can you find {}?",
-                            letter_name(tapped),
-                            letter_name(self.target)
+                            "That's {}. {} says {}. Can you find {}?",
+                            tapped.name,
+                            capitalize(tapped.name),
+                            tapped.sound(),
+                            target.name
                         ));
                     }
                 }
@@ -120,7 +151,30 @@ impl MiniGame for Letters {
     }
 
     fn draw(&self, ctx: &Ctx) {
+        let font = ctx.font();
         let celebrating = matches!(self.phase, Phase::Celebrating(_));
+        let target = self.target();
+        let target_color = self
+            .choices
+            .iter()
+            .position(|c| *c == self.target)
+            .map(|i| self.colors[i % self.colors.len()].color())
+            .unwrap_or(art::INK);
+
+        // The picture clue. Its word shows up as a hint after a miss, and when it's solved.
+        let clue = Self::clue_rect();
+        let bob = (ctx.time * 2.0).sin() * clue.h * 0.02;
+        let clue = Rect::new(clue.x, clue.y + bob, clue.w, clue.h);
+        art::card(clue, WHITE);
+        let show_word = celebrating || self.misses >= 1;
+        let pic_c = vec2(clue.center().x, clue.y + clue.h * if show_word { 0.42 } else { 0.5 });
+        pictures::draw(target.picture, pic_c, clue.h * if show_word { 0.3 } else { 0.36 });
+        if show_word {
+            let c = vec2(clue.center().x, clue.y + clue.h * 0.86);
+            art::word_label(font, target.word, c, clue.h * 0.12, target_color, None);
+        }
+
+        // The letter choices.
         for (i, (r, letter)) in self.rects().iter().zip(&self.choices).enumerate() {
             let is_target = *letter == self.target;
             let mut r = *r;
@@ -133,15 +187,7 @@ impl MiniGame for Letters {
             }
             art::card(r, WHITE);
             let color = self.colors[i % self.colors.len()].color();
-            art::text_center(ctx.font(), &letter.to_string(), r.center(), r.h * 0.75, color);
-
-            // Show a picture for the letter's word, if we can draw one (A = apple, B = ball...).
-            if celebrating && is_target {
-                if let (_, Some(thing)) = word_for(*letter) {
-                    let c = vec2(r.center().x, screen_height() * 0.2);
-                    art::draw_thing(thing, c, screen_height() * 0.08, color);
-                }
-            }
+            art::text_center(font, &letter.to_string(), r.center(), r.h * 0.75, color);
         }
     }
 
@@ -156,71 +202,5 @@ impl MiniGame for Letters {
     fn level_label(&self, level: u32) -> (String, String) {
         let size = POOL_SIZE[(level - 1) as usize];
         (size.to_string(), "letters".to_string())
-    }
-}
-
-/// How to say a letter's name so the computer voice pronounces it right.
-pub fn letter_name(c: char) -> &'static str {
-    match c.to_ascii_uppercase() {
-        'A' => "ay",
-        'B' => "bee",
-        'C' => "see",
-        'D' => "dee",
-        'E' => "ee",
-        'F' => "eff",
-        'G' => "gee",
-        'H' => "aitch",
-        'I' => "eye",
-        'J' => "jay",
-        'K' => "kay",
-        'L' => "ell",
-        'M' => "em",
-        'N' => "en",
-        'O' => "oh",
-        'P' => "pee",
-        'Q' => "cue",
-        'R' => "ar",
-        'S' => "ess",
-        'T' => "tee",
-        'U' => "you",
-        'V' => "vee",
-        'W' => "double you",
-        'X' => "ex",
-        'Y' => "why",
-        'Z' => "zee",
-        _ => "",
-    }
-}
-
-/// A word that starts with the letter, plus a picture if we have one.
-fn word_for(c: char) -> (&'static str, Option<Thing>) {
-    match c {
-        'A' => ("apple", Some(Thing::Apple)),
-        'B' => ("ball", Some(Thing::Ball)),
-        'C' => ("cat", None),
-        'D' => ("dog", None),
-        'E' => ("elephant", None),
-        'F' => ("fish", Some(Thing::Fish)),
-        'G' => ("goat", None),
-        'H' => ("heart", Some(Thing::Heart)),
-        'I' => ("igloo", None),
-        'J' => ("jellyfish", None),
-        'K' => ("kite", None),
-        'L' => ("lion", None),
-        'M' => ("moon", None),
-        'N' => ("nest", None),
-        'O' => ("octopus", None),
-        'P' => ("pig", None),
-        'Q' => ("queen", None),
-        'R' => ("rainbow", None),
-        'S' => ("Sebastian, and star", Some(Thing::Star)),
-        'T' => ("tiger", None),
-        'U' => ("umbrella", None),
-        'V' => ("van", None),
-        'W' => ("whale", None),
-        'X' => ("xylophone", None),
-        'Y' => ("yo-yo", None),
-        'Z' => ("zebra", None),
-        _ => ("", None),
     }
 }

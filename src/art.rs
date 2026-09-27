@@ -348,6 +348,38 @@ pub fn text_center(font: Option<&Font>, text: &str, c: Vec2, size: f32, color: C
     );
 }
 
+/// A word label like "BALL", in capitals to match the Letters game, with the first letter
+/// bigger and in `first_color`, so the word's first letter stands out. `bg` draws a pill
+/// behind it (use it when the label sits on something colorful).
+pub fn word_label(font: Option<&Font>, word: &str, c: Vec2, size: f32, first_color: Color, bg: Option<Color>) {
+    let word = word.to_uppercase();
+    let mut chars = word.chars();
+    let Some(first) = chars.next() else { return };
+    let first = first.to_string();
+    let rest: String = chars.collect();
+
+    let big = (size * 1.35) as u16;
+    let small = size as u16;
+    let w_first = measure_text(&first, font, big, 1.0).width;
+    let w_rest = measure_text(&rest, font, small, 1.0).width;
+    let gap = size * 0.06;
+    let total = w_first + gap + w_rest;
+    let x = c.x - total / 2.0;
+    let baseline = c.y + size * 0.36;
+
+    if let Some(bg) = bg {
+        let pad = size * 0.35;
+        rounded_rect(
+            Rect::new(x - pad, c.y - size * 0.75, total + pad * 2.0, size * 1.5),
+            size * 0.5,
+            bg,
+        );
+    }
+    let params = |font_size, color| TextParams { font, font_size, color, ..Default::default() };
+    draw_text_ex(&first, x, baseline, params(big, first_color));
+    draw_text_ex(&rest, x + w_first + gap, baseline, params(small, INK));
+}
+
 /// Draw text starting at `x`, vertically centered on `cy`.
 pub fn text_left(font: Option<&Font>, text: &str, x: f32, cy: f32, size: f32, color: Color) {
     let fs = size.max(1.0) as u16;

@@ -1,6 +1,7 @@
 // In release builds, don't open a console window next to the game.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod alphabet;
 mod art;
 mod assets;
 mod ctx;
@@ -10,6 +11,7 @@ mod hud;
 mod input;
 mod levels;
 mod menu;
+mod pictures;
 mod sfx;
 mod voice;
 mod wav;
@@ -34,6 +36,25 @@ fn window_conf() -> Conf {
         high_dpi: true,
         ..Default::default()
     }
+}
+
+/// The value after a command-line flag, e.g. `arg_value("--start")` for `--start 2:3`.
+fn arg_value(flag: &str) -> Option<String> {
+    let args: Vec<String> = std::env::args().collect();
+    let i = args.iter().position(|a| a == flag)?;
+    args.get(i + 1).cloned()
+}
+
+/// Developer helper: `--snapshot out.png` saves a picture of the screen after a couple of
+/// seconds and quits (works even when the laptop is locked). Returns true when it's time to quit.
+fn snapshot_done(time: f32) -> bool {
+    let Some(path) = arg_value("--snapshot") else { return false };
+    let after: f32 = arg_value("--snapshot-after").and_then(|s| s.parse().ok()).unwrap_or(2.5);
+    if time < after {
+        return false;
+    }
+    get_screen_data().export_png(&path);
+    true
 }
 
 /// Which screen we're on. The number is the game (same order as the menu tiles).
@@ -77,6 +98,40 @@ async fn main() {
     common.extend(art::Paint::ALL.iter().map(|p| p.name().to_string()));
     common.extend(["Pick a game!", "Pick a level!"].map(String::from));
     ctx.voice.prepare(&common);
+
+    // `cargo run -- --gallery` shows every alphabet picture (handy when drawing new ones).
+    if std::env::args().any(|a| a == "--gallery") {
+        loop {
+            art::background(get_time() as f32);
+            let (w, h) = (screen_width(), screen_height());
+            let (cols, rows) = (7, 4);
+            let cell = (w / cols as f32).min(h / rows as f32);
+            for (i, l) in alphabet::LETTERS.iter().enumerate() {
+                let (col, row) = (i % cols, i / cols);
+                let r = Rect::new(col as f32 * cell + cell * 0.05, row as f32 * cell + cell * 0.05, cell * 0.9, cell * 0.9);
+                art::card(r, WHITE);
+                pictures::draw(l.picture, vec2(r.center().x, r.y + r.h * 0.42), r.h * 0.3);
+                art::word_label(ctx.font(), l.word, vec2(r.center().x, r.y + r.h * 0.86), r.h * 0.1, art::Paint::Red.color(), None);
+            }
+            if is_key_pressed(KeyCode::Escape) || snapshot_done(get_time() as f32) {
+                return;
+            }
+            next_frame().await;
+        }
+    }
+
+    // `--start 2:3` jumps straight into game 2 (Letters) at level 3. Games count from 0.
+    if let Some(start) = arg_value("--start") {
+        let mut parts = start.split(':').map(|p| p.parse::<u32>().ok());
+        if let Some(Some(i)) = parts.next() {
+            let i = (i as usize).min(games.len() - 1);
+            if let Some(Some(level)) = parts.next() {
+                games[i].progress_mut().set_level(level);
+            }
+            games[i].enter(&mut ctx);
+            screen = Screen::Playing(i);
+        }
+    }
 
     loop {
         // Grown-up controls: Esc quits, Up/Down arrows change the level.
@@ -156,6 +211,9 @@ async fn main() {
         hud::draw_stars(&ctx);
         ctx.confetti.draw();
 
+        if snapshot_done(ctx.time) {
+            break;
+        }
         next_frame().await;
     }
 }
