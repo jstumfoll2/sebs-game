@@ -1,7 +1,7 @@
 //! Find the letter: the voice asks for a letter, Sebastian taps it.
 //! Starts with a handful of letters and slowly adds more.
 
-use super::{fade, shuffle, MiniGame, Phase, Progress};
+use super::{celebration_over, fade, shuffle, MiniGame, Phase, Progress};
 use crate::art::{self, Paint, Thing};
 use crate::ctx::Ctx;
 use macroquad::prelude::*;
@@ -87,7 +87,7 @@ impl MiniGame for Letters {
         match self.phase {
             Phase::Celebrating(t) => {
                 let t = t - ctx.dt;
-                if t <= 0.0 {
+                if celebration_over(t, ctx) {
                     self.new_round();
                     ctx.voice.then(&self.prompt());
                 } else {

@@ -1,7 +1,9 @@
 //! Pattern finish: red, blue, red, blue, ... what comes next?
 //! Starts with simple AB color patterns and grows to ABC, AAB, ABB and AABB.
 
-use super::{fade, pick, row_of_cards, shuffle, MiniGame, Phase, Progress};
+use super::{
+    celebration_over, fade, pick, row_of_cards, shuffle, MiniGame, Phase, Progress, STEP_TIMEOUT,
+};
 use crate::art::{self, Paint, Thing};
 use crate::ctx::Ctx;
 use macroquad::prelude::*;
@@ -31,7 +33,24 @@ pub struct Pattern {
     misses: u32,
     shake: Vec<f32>,
     phase: Phase,
+    chant: Chant,
 }
+
+/// After a right answer we "chant" the whole pattern, one item at a time,
+/// lighting up each item while the voice says it.
+#[derive(Clone, Copy, Debug, Default)]
+struct Chant {
+    /// Next item to say (the answer slot is index `shown.len()`).
+    next: usize,
+    /// Item currently lit up.
+    lit: Option<usize>,
+    /// Seconds on the current item.
+    time: f32,
+    done: bool,
+}
+
+/// Minimum seconds per item while chanting (so it has a steady rhythm).
+const CHANT_STEP: f32 = 0.35;
 
 impl Pattern {
     pub fn new() -> Self {
@@ -45,6 +64,7 @@ impl Pattern {
             misses: 0,
             shake: Vec::new(),
             phase: Phase::Playing,
+            chant: Chant::default(),
         };
         game.new_round();
         game
@@ -112,15 +132,31 @@ impl Pattern {
         }
     }
 
-    /// "red, blue, red, blue, red, blue!" — say the whole pattern out loud.
-    fn chant(&self) -> String {
-        let words: Vec<String> = self
-            .shown
-            .iter()
-            .chain(std::iter::once(&self.answer))
-            .map(|it| self.word(*it))
-            .collect();
-        words.join(", ") + "!"
+    /// Item `i` of the finished pattern (the last one is the answer).
+    fn item(&self, i: usize) -> Item {
+        self.shown.get(i).copied().unwrap_or(self.answer)
+    }
+
+    /// "red... blue... red... blue!" Say each item once the voice has finished the last one,
+    /// so the lit-up item always matches the word being spoken.
+    fn update_chant(&mut self, ctx: &mut Ctx) {
+        let total = self.shown.len() + 1;
+        self.chant.time += ctx.dt;
+        let voice_done = !ctx.voice.busy() || self.chant.time > STEP_TIMEOUT;
+        if self.chant.time < CHANT_STEP || !voice_done {
+            return;
+        }
+        if self.chant.next < total {
+            let word = self.word(self.item(self.chant.next));
+            ctx.voice.then(&word);
+            self.chant.lit = Some(self.chant.next);
+            self.chant.next += 1;
+            self.chant.time = 0.0;
+        } else {
+            self.chant.lit = None;
+            self.chant.done = true;
+            self.phase = Phase::Celebrating(0.6); // short pause before the next round
+        }
     }
 
     fn slot_rects(&self) -> Vec<Rect> {
@@ -145,9 +181,10 @@ impl MiniGame for Pattern {
     fn update(&mut self, ctx: &mut Ctx) {
         fade(&mut self.shake, ctx.dt, 2.5);
         match self.phase {
+            Phase::Celebrating(_) if !self.chant.done => self.update_chant(ctx),
             Phase::Celebrating(t) => {
                 let t = t - ctx.dt;
-                if t <= 0.0 {
+                if celebration_over(t, ctx) {
                     self.new_round();
                     ctx.voice.then(&self.prompt());
                 } else {
@@ -160,8 +197,9 @@ impl MiniGame for Pattern {
                     if self.choices[i] == self.answer {
                         let leveled = self.progress.record(self.first_try);
                         let slot = *self.slot_rects().last().unwrap();
-                        ctx.correct(slot.center(), &self.chant(), leveled);
-                        self.phase = Phase::Celebrating(2.5);
+                        ctx.correct(slot.center(), "Let's say it together!", leveled);
+                        self.phase = Phase::Celebrating(0.0);
+                        self.chant = Chant::default();
                     } else {
                         self.first_try = false;
                         self.misses += 1;
@@ -177,28 +215,37 @@ impl MiniGame for Pattern {
         let font = ctx.font();
         let slots = self.slot_rects();
 
-        // The pattern, with a little wave running through it to show the rhythm.
+        let playing = self.phase == Phase::Playing;
+
+        // The pattern. While playing, a little wave runs through it to show the rhythm;
+        // while chanting, the item being said lights up and hops.
         for (i, (r, item)) in slots.iter().zip(&self.shown).enumerate() {
-            let hop = (ctx.time * 4.0 - i as f32 * 0.8).sin().max(0.0) * r.h * 0.06;
-            let r = Rect::new(r.x, r.y - hop, r.w, r.h);
+            let mut r = *r;
+            if playing {
+                r.y -= (ctx.time * 4.0 - i as f32 * 0.8).sin().max(0.0) * r.h * 0.06;
+            } else if self.chant.lit == Some(i) {
+                r = art::scale_rect(r, 1.15);
+                r.y -= r.h * 0.08;
+                art::glow(r, ctx.time);
+            }
             art::card(r, WHITE);
             art::draw_thing(item.0, r.center(), r.w * 0.34, item.1.color());
         }
 
-        // The "?" slot, or the answer popping in once found.
-        let q = *slots.last().unwrap();
-        match self.phase {
-            Phase::Playing => {
-                let pulse = 1.0 + 0.05 * (ctx.time * 5.0).sin();
-                let r = art::scale_rect(q, pulse);
-                art::card(r, Color::from_rgba(255, 244, 200, 255));
-                art::text_center(font, "?", r.center(), r.h * 0.7, art::INK);
+        // The "?" slot, or the answer once found.
+        let mut q = *slots.last().unwrap();
+        if playing {
+            q = art::scale_rect(q, 1.0 + 0.05 * (ctx.time * 5.0).sin());
+            art::card(q, Color::from_rgba(255, 244, 200, 255));
+            art::text_center(font, "?", q.center(), q.h * 0.7, art::INK);
+        } else {
+            if self.chant.lit == Some(self.shown.len()) {
+                q = art::scale_rect(q, 1.15);
+                q.y -= q.h * 0.08;
+                art::glow(q, ctx.time);
             }
-            Phase::Celebrating(t) => {
-                let grow = ((2.5 - t) * 4.0).min(1.0);
-                art::card(q, Color::from_rgba(255, 244, 200, 255));
-                art::draw_thing(self.answer.0, q.center(), q.w * 0.34 * grow, self.answer.1.color());
-            }
+            art::card(q, Color::from_rgba(255, 244, 200, 255));
+            art::draw_thing(self.answer.0, q.center(), q.w * 0.34, self.answer.1.color());
         }
 
         // Answer choices.

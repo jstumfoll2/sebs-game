@@ -2,7 +2,7 @@
 //! then pick how many there are. The last badge matches the answer, which teaches the key idea
 //! that "the last number you say is how many there are".
 
-use super::{fade, pick, shuffle, MiniGame, Progress};
+use super::{celebration_over, fade, pick, shuffle, MiniGame, Progress, STEP_TIMEOUT};
 use crate::art::{self, Paint, Thing};
 use crate::ctx::Ctx;
 use macroquad::prelude::*;
@@ -12,8 +12,16 @@ const NUMBER_WORDS: [&str; 11] = [
 ];
 /// Smallest and largest count for each level.
 const RANGES: [(usize, usize); 4] = [(1, 3), (2, 5), (3, 7), (4, 10)];
-/// Seconds between highlights when re-counting together after a miss.
-const RECOUNT_STEP: f32 = 0.8;
+/// Minimum seconds per number when counting together after a miss.
+const RECOUNT_STEP: f32 = 0.5;
+
+/// Counting together after a miss: which number we're on (0 = still saying
+/// "Let's count them together!") and how long we've been on it.
+#[derive(Clone, Copy, Debug)]
+struct Recount {
+    number: usize,
+    time: f32,
+}
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 enum Stage {
@@ -43,8 +51,7 @@ pub struct Counting {
     choices: Vec<usize>,
     shake: Vec<f32>,
     first_try: bool,
-    /// When counting together after a miss: seconds since it started.
-    recount: Option<f32>,
+    recount: Option<Recount>,
 }
 
 impl Counting {
@@ -149,12 +156,34 @@ impl Counting {
 
     /// Which object is lit up while counting together after a miss.
     fn recount_highlight(&self) -> Option<usize> {
-        let t = self.recount?;
-        if t < 0.0 {
-            return None;
+        let number = self.recount?.number;
+        self.order.iter().position(|o| *o == Some(number))
+    }
+
+    /// Step through counting together: each number is highlighted *while* it's being said,
+    /// and we only move on once the voice has finished saying it.
+    fn update_recount(&mut self, ctx: &mut Ctx) {
+        let Some(mut rc) = self.recount else { return };
+        rc.time += ctx.dt;
+        let voice_done = !ctx.voice.busy() || rc.time > STEP_TIMEOUT;
+        if rc.time >= RECOUNT_STEP && voice_done {
+            if rc.number < self.n() {
+                rc = Recount { number: rc.number + 1, time: 0.0 };
+                ctx.voice.say(NUMBER_WORDS[rc.number]);
+                // (Find the index first: Rust won't let us read `self` inside `self.pop[...] = `.)
+                let target = self.recount_target(rc.number);
+                self.pop[target] = 1.0;
+            } else {
+                self.recount = None;
+                ctx.voice.say(&self.prompt());
+                return;
+            }
         }
-        let k = (t / RECOUNT_STEP) as usize + 1;
-        self.order.iter().position(|o| *o == Some(k))
+        self.recount = Some(rc);
+    }
+
+    fn recount_target(&self, number: usize) -> usize {
+        self.order.iter().position(|o| *o == Some(number)).unwrap_or(0)
     }
 }
 
@@ -175,11 +204,10 @@ impl MiniGame for Counting {
         fade(&mut self.pop, ctx.dt, 3.0);
         fade(&mut self.wiggle, ctx.dt, 2.5);
         fade(&mut self.shake, ctx.dt, 2.5);
-        if let Some(t) = &mut self.recount {
-            *t += ctx.dt;
-            if *t > RECOUNT_STEP * (self.n() as f32 + 1.0) {
-                self.recount = None;
-            }
+        if self.recount.is_some() {
+            // Wait for counting together to finish before accepting answers.
+            self.update_recount(ctx);
+            return;
         }
 
         let input = ctx.input;
@@ -227,15 +255,13 @@ impl MiniGame for Counting {
                         self.first_try = false;
                         self.shake[i] = 1.0;
                         ctx.wrong("Let's count them together!");
-                        let together: Vec<&str> = NUMBER_WORDS[1..=n].to_vec();
-                        ctx.voice.then(&together.join(", "));
-                        self.recount = Some(-1.2); // start highlighting once the voice gets going
+                        self.recount = Some(Recount { number: 0, time: 0.0 });
                     }
                 }
             }
             Stage::Celebrating(t) => {
                 let t = t - ctx.dt;
-                if t <= 0.0 {
+                if celebration_over(t, ctx) {
                     self.new_round();
                     ctx.voice.then(&self.prompt());
                 } else {

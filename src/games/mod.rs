@@ -64,6 +64,19 @@ pub enum Phase {
     Celebrating(f32),
 }
 
+/// Longest we'll wait for the voice after a celebration's minimum time (safety net).
+const MAX_VOICE_WAIT: f32 = 8.0;
+/// Longest we'll wait for the voice to say one word when stepping through words
+/// (chanting a pattern, counting together) before moving on anyway.
+pub const STEP_TIMEOUT: f32 = 4.0;
+
+/// A celebration ends once its minimum time `t` has run out AND the voice has finished
+/// its praise, so the next round never appears while we're still talking about the last one.
+/// `t` keeps counting down below zero while we wait.
+pub fn celebration_over(t: f32, ctx: &Ctx) -> bool {
+    t <= 0.0 && (!ctx.voice.busy() || t < -MAX_VOICE_WAIT)
+}
+
 /// Pick a random item from a list.
 pub fn pick<T: Copy>(items: &[T]) -> T {
     items[rand::gen_range(0, items.len())]

@@ -1,7 +1,7 @@
 //! Color sorting: drag the object into the bucket that matches its color (or just tap the bucket).
 //! The voice names colors on pick-up, on success, and on a miss, to connect colors with their names.
 
-use super::{fade, pick, shuffle, MiniGame, Phase, Progress};
+use super::{celebration_over, fade, pick, shuffle, MiniGame, Phase, Progress};
 use crate::art::{self, Paint, Thing};
 use crate::ctx::Ctx;
 use macroquad::prelude::*;
@@ -105,7 +105,7 @@ impl MiniGame for ColorSort {
                 let into = vec2(r.center().x, r.y + r.h * 0.2);
                 self.item_pos = self.item_pos.lerp(into, (ctx.dt * 8.0).min(1.0));
                 let t = t - ctx.dt;
-                if t <= 0.0 {
+                if celebration_over(t, ctx) {
                     self.new_round();
                     ctx.voice.then(&self.prompt());
                 } else {
@@ -156,7 +156,7 @@ impl MiniGame for ColorSort {
 
         let s = item_size();
         let (bob, scale) = match self.phase {
-            Phase::Celebrating(t) => (0.0, 0.5 + 0.5 * (t / CELEBRATE_SECS)),
+            Phase::Celebrating(t) => (0.0, 0.5 + 0.5 * (t / CELEBRATE_SECS).max(0.0)),
             Phase::Playing if self.dragging => (0.0, 1.15),
             Phase::Playing => ((ctx.time * 3.0).sin() * s * 0.08, 1.0),
         };
