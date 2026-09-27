@@ -13,6 +13,7 @@ mod levels;
 mod menu;
 mod pictures;
 mod sfx;
+mod stars;
 mod voice;
 mod wav;
 
@@ -90,6 +91,7 @@ async fn main() {
     ];
     let mut menu = menu::Menu::new();
     let mut screen = Screen::Menu;
+    let mut star_panel = stars::StarPanel::default();
 
     ctx.voice.say("Hi Sebastian! Pick a game!");
     // Get common phrases ready in the background so they play instantly later.
@@ -120,6 +122,14 @@ async fn main() {
         }
     }
 
+    // `--stars 7` starts with 7 stars; `--show-stars` opens the star panel right away.
+    if let Some(n) = arg_value("--stars").and_then(|s| s.parse().ok()) {
+        ctx.stars = n;
+    }
+    if std::env::args().any(|a| a == "--show-stars") {
+        star_panel.open(&mut ctx);
+    }
+
     // `--start 2:3` jumps straight into game 2 (Letters) at level 3. Games count from 0.
     if let Some(start) = arg_value("--start") {
         let mut parts = start.split(':').map(|p| p.parse::<u32>().ok());
@@ -134,7 +144,7 @@ async fn main() {
     }
 
     loop {
-        // Grown-up controls: Esc quits, Up/Down arrows change the level.
+        // Grown-up control: Esc quits.
         if is_key_pressed(KeyCode::Escape) {
             break;
         }
@@ -147,51 +157,10 @@ async fn main() {
         ctx.voice.update().await;
 
         // ----- update -----
-        match screen {
-            Screen::Menu => {
-                if let Some(i) = menu.update(&mut ctx) {
-                    ctx.sfx.pop();
-                    ctx.voice.then("Pick a level!");
-                    screen = Screen::Levels(i);
-                }
-            }
-            Screen::Levels(i) => {
-                if ctx.input.tapped(hud::home_rect()) {
-                    ctx.sfx.pop();
-                    ctx.voice.say("Pick a game!");
-                    screen = Screen::Menu;
-                } else if let Some(level) = levels::update(games[i].as_ref(), &ctx) {
-                    ctx.sfx.pop();
-                    games[i].progress_mut().set_level(level);
-                    ctx.voice.say(&format!("Level {level}!"));
-                    games[i].enter(&mut ctx);
-                    screen = Screen::Playing(i);
-                }
-            }
-            Screen::Playing(i) => {
-                let game = &mut games[i];
-                let level_change = if is_key_pressed(KeyCode::Up) {
-                    1
-                } else if is_key_pressed(KeyCode::Down) {
-                    -1
-                } else {
-                    0
-                };
-                if level_change != 0 {
-                    let level = game.progress().level as i32 + level_change;
-                    game.progress_mut().set_level(level.max(1) as u32);
-                    game.enter(&mut ctx);
-                } else if ctx.input.tapped(hud::home_rect()) {
-                    ctx.sfx.pop();
-                    ctx.voice.say("Pick a game!");
-                    screen = Screen::Menu;
-                } else if ctx.input.tapped(hud::repeat_rect()) {                    ctx.sfx.pop();
-                    let prompt = game.prompt();
-                    ctx.voice.say(&prompt);
-                } else {
-                    game.update(&mut ctx);
-                }
-            }
+        // The star panel (tap the star counter) sits on top of everything while it's open.
+        let panel_open = star_panel.update(&mut ctx);
+        if !panel_open {
+            update_screen(&mut screen, &mut games, &mut menu, &mut ctx);
         }
 
         // ----- draw -----
@@ -210,10 +179,63 @@ async fn main() {
         }
         hud::draw_stars(&ctx);
         ctx.confetti.draw();
+        star_panel.draw(&ctx);
 
         if snapshot_done(ctx.time) {
             break;
         }
         next_frame().await;
+    }
+}
+
+/// Handle taps and game logic for whichever screen we're on.
+fn update_screen(screen: &mut Screen, games: &mut [Box<dyn MiniGame>], menu: &mut menu::Menu, ctx: &mut Ctx) {
+    match *screen {
+        Screen::Menu => {
+            if let Some(i) = menu.update(ctx) {
+                ctx.sfx.pop();
+                ctx.voice.then("Pick a level!");
+                *screen = Screen::Levels(i);
+            }
+        }
+        Screen::Levels(i) => {
+            if ctx.input.tapped(hud::home_rect()) {
+                ctx.sfx.pop();
+                ctx.voice.say("Pick a game!");
+                *screen = Screen::Menu;
+            } else if let Some(level) = levels::update(games[i].as_ref(), ctx) {
+                ctx.sfx.pop();
+                games[i].progress_mut().set_level(level);
+                ctx.voice.say(&format!("Level {level}!"));
+                games[i].enter(ctx);
+                *screen = Screen::Playing(i);
+            }
+        }
+        Screen::Playing(i) => {
+            let game = &mut games[i];
+            // Grown-up control: Up/Down arrows change the level.
+            let level_change = if is_key_pressed(KeyCode::Up) {
+                1
+            } else if is_key_pressed(KeyCode::Down) {
+                -1
+            } else {
+                0
+            };
+            if level_change != 0 {
+                let level = game.progress().level as i32 + level_change;
+                game.progress_mut().set_level(level.max(1) as u32);
+                game.enter(ctx);
+            } else if ctx.input.tapped(hud::home_rect()) {
+                ctx.sfx.pop();
+                ctx.voice.say("Pick a game!");
+                *screen = Screen::Menu;
+            } else if ctx.input.tapped(hud::repeat_rect()) {
+                ctx.sfx.pop();
+                let prompt = game.prompt();
+                ctx.voice.say(&prompt);
+            } else {
+                game.update(ctx);
+            }
+        }
     }
 }

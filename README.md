@@ -1,44 +1,71 @@
 # Sebastian's Game
 
 A touch-screen learning game for a 4-year-old, written in Rust with [macroquad](https://macroquad.rs).
-Everything is drawn with code and all sounds are synthesized, so there are no asset files.
-The voice uses the text-to-speech built into Windows.
+Everything is drawn with code and all sound effects are synthesized. The voice is
+[Piper](https://github.com/rhasspy/piper), a natural-sounding text-to-speech engine that runs offline.
+
+## Setup
+
+1. Install Rust: <https://rustup.rs> (on Windows you also need the Visual Studio C++ Build Tools).
+2. Download the voice (about 90 MB, kept out of git):
+
+   ```bash
+   powershell -ExecutionPolicy Bypass -File scripts\get-voice.ps1
+   ```
+
+   Without it the game falls back to the robotic built-in Windows voice.
+3. Run:
+
+   ```bash
+   cargo run --release
+   ```
 
 ## Games
 
-| Game | What it teaches | How it gets harder |
-|------|-----------------|--------------------|
-| **Colors** | Drag (or tap) the object into the matching bucket. The voice says color names. | 2 → 6 buckets, then all 8 colors |
-| **Patterns** | Red, blue, red, blue… what comes next? | AB → ABC, AAB, ABB, AABB; color, shape, or both change |
-| **Letters** | "Find the letter B!" | 5 → 26 letters, 3 → 5 choices |
-| **Counting** | Tap each object to count it (a number badge appears), then pick how many | 1–3, 1–5, 4–7, 5–10, 7–10 objects |
+| Game | What it teaches | Levels |
+|------|-----------------|--------|
+| **Colors** | Drag (or tap) the object into the matching bucket. Buckets are labeled with color words. | 2 → 6 colors |
+| **Patterns** | Red, blue, red, blue… what comes next? The voice chants the pattern, lighting each item up. | AB → ABC, AAB, ABB, AABB |
+| **Letters** | A picture clue ("ball") and the letter's sound: "Find the letter bee! Buh, buh, ball!" | 5 → 26 letters |
+| **Counting** | Tap each object to count it, then pick how many. Includes zero ("zero means none!"). | 0–3, 0–5, 4–7, 5–10, 7–10, 10–15, 11–20 |
 
-Tapping a game opens a **level picker**; the current level glows. Each game also moves up
-a level on its own after **4 right answers in a row**. After two misses, the right answer
-glows or bounces as a hint. Wrong answers get a gentle "uh-oh" and never a penalty.
+- Tapping a game opens a **level picker**; the current level glows. Games also level up on
+  their own after **4 right answers in a row**.
+- Hints after misses (the right answer glows or bounces). Wrong answers never cost anything.
+- Words are labeled in capitals with the **first letter big**, to connect words and letters.
+- **Stars:** every right answer earns a star. Tap the star counter to count them all together.
+- Tap a letter in the title on the home screen to hear its name and sound.
 
-## Running
+## Grown-up controls
 
-```bash
-cargo run --release
-```
-
-Add `-- --windowed` to run in a window instead of fullscreen.
-
-**Grown-up controls:** `Esc` quits. `↑` / `↓` change the level of the current game.
+- `Esc` quits. `↑` / `↓` change the level of the current game.
+- `cargo run -- --windowed` runs in a window instead of fullscreen.
 
 ## Customizing
 
 - **Starting letters:** edit `LETTER_ORDER` in `src/games/letters.rs` and put the letters he knows first.
+- **Your own voice:** every phrase is saved in `assets/voice-cache/` as a `.wav` named after its words
+  (e.g. `where-does-the-red-ball-go.wav`). Record your own clip with the same name to replace it.
+- **Different Piper voice:** `scripts\get-voice.ps1 -Voice en_US-amy-medium`
+  (samples: <https://rhasspy.github.io/piper-samples/>).
 - **Font:** put any `.ttf` at `assets/font.ttf` (by default it uses Comic Sans from Windows).
-- **Voice:** it uses "Microsoft Zira" if installed. Change it in `src/speech.rs`.
+
+## Developer options
+
+- `--gallery` shows all 26 alphabet pictures.
+- `--start 3:5` jumps straight into game 3 (Counting) at level 5. Games count from 0.
+- `--stars 12` starts with 12 stars; `--show-stars` opens the star panel.
+- `--snapshot out.png` saves a screenshot after 2.5 s (`--snapshot-after 5` to change) and quits.
+- `cargo test` runs the unit tests.
 
 ## Code tour (for learning Rust)
 
 - `src/main.rs`: window setup and the main loop (update, then draw, every frame)
 - `src/games/mod.rs`: the `MiniGame` **trait** that every game implements, plus shared helpers
 - `src/games/*.rs`: one file per game; each is a **struct** holding its state
-- `src/art.rs`: all drawing; **enums** `Paint` and `Thing` with `match`
-- `src/speech.rs`: spawns a background process and talks to it over a pipe; uses `#[cfg(windows)]`
-- `src/sfx.rs`: builds WAV files byte by byte in memory
-- `src/input.rs`: turns touch or mouse into one simple "finger"
+- `src/art.rs`, `src/pictures.rs`: all drawing; **enums** like `Paint`, `Thing` and `Picture` with `match`
+- `src/alphabet.rs`: a table of letters built with a small **macro**
+- `src/voice/`: an **enum** that holds either voice; Piper runs on a background **thread** and
+  talks back over **channels**
+- `src/wav.rs`, `src/sfx.rs`: reading and writing WAV files byte by byte
+- `src/input.rs`: turns touch or mouse into one "finger"; calls Windows directly through **FFI**

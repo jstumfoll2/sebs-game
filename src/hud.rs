@@ -43,9 +43,20 @@ pub fn draw_game_buttons(ctx: &Ctx, level: u32) {
     );
 }
 
+fn star_center() -> Vec2 {
+    let s = button_size();
+    vec2(screen_width() - s * 1.9, s * 0.75)
+}
+
+/// The tappable area around the star counter (star plus number).
+pub fn star_rect() -> Rect {
+    let (s, c) = (button_size(), star_center());
+    Rect::new(c.x - s * 0.7, 0.0, s * 2.4, s * 1.5)
+}
+
 pub fn draw_stars(ctx: &Ctx) {
     let s = button_size();
-    let c = vec2(screen_width() - s * 1.9, s * 0.75);
+    let c = star_center();
     let r = s * 0.45 * (1.0 + ctx.star_pop * 0.5);
     art::star(c, r * 1.1, art::darken(art::GOLD, 0.25));
     art::star(c, r, art::GOLD);
