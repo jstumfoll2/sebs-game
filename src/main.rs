@@ -111,7 +111,7 @@ async fn main() {
                 let r = Rect::new(col as f32 * cell + cell * 0.05, row as f32 * cell + cell * 0.05, cell * 0.9, cell * 0.9);
                 art::card(r, WHITE);
                 pictures::draw(l.picture, vec2(r.center().x, r.y + r.h * 0.42), r.h * 0.3);
-                art::word_label(ctx.font(), l.word, vec2(r.center().x, r.y + r.h * 0.86), r.h * 0.1, art::Paint::Red.color(), None);
+                art::word_label(ctx.font(), l.word, vec2(r.center().x, r.y + r.h * 0.86), r.h * 0.1, r.w * 0.9, art::Paint::Red.color(), None);
             }
             if is_key_pressed(KeyCode::Escape) || snapshot_done(get_time() as f32) {
                 return;

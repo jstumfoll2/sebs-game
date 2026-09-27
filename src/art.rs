@@ -124,6 +124,16 @@ pub fn darken(c: Color, t: f32) -> Color {
     mix(c, Color::new(0.0, 0.0, 0.0, c.a), t)
 }
 
+/// A version of `c` that shows up on white: very light colors (like yellow) get darkened.
+pub fn readable(c: Color) -> Color {
+    let brightness = 0.299 * c.r + 0.587 * c.g + 0.114 * c.b;
+    if brightness > 0.7 {
+        darken(c, 0.25)
+    } else {
+        c
+    }
+}
+
 /// Side-to-side wiggle used when a wrong answer is tapped. `amount` fades from 1 to 0.
 pub fn shake_x(amount: f32, time: f32) -> f32 {
     (time * 45.0).sin() * amount * 14.0
@@ -297,7 +307,7 @@ pub fn bucket(r: Rect, color: Color) {
         r.h * 0.045,
         lighten(color, 0.3),
     );
-    face(vec2(cx, r.y + r.h * 0.58), r.w * 0.3);
+    face(vec2(cx, r.y + r.h * 0.48), r.w * 0.26);
 }
 
 fn trapezoid(cx: f32, top: f32, bot: f32, half_top: f32, half_bot: f32, color: Color) {
@@ -350,19 +360,37 @@ pub fn text_center(font: Option<&Font>, text: &str, c: Vec2, size: f32, color: C
 
 /// A word label like "BALL", in capitals to match the Letters game, with the first letter
 /// bigger and in `first_color`, so the word's first letter stands out. `bg` draws a pill
-/// behind it (use it when the label sits on something colorful).
-pub fn word_label(font: Option<&Font>, word: &str, c: Vec2, size: f32, first_color: Color, bg: Option<Color>) {
+/// behind it (use it when the label sits on something colorful). The label shrinks if
+/// needed to fit in `max_w` pixels.
+pub fn word_label(
+    font: Option<&Font>,
+    word: &str,
+    c: Vec2,
+    size: f32,
+    max_w: f32,
+    first_color: Color,
+    bg: Option<Color>,
+) {
     let word = word.to_uppercase();
     let mut chars = word.chars();
     let Some(first) = chars.next() else { return };
     let first = first.to_string();
     let rest: String = chars.collect();
 
+    let measure = |size: f32| {
+        let w_first = measure_text(&first, font, (size * 1.35) as u16, 1.0).width;
+        let w_rest = measure_text(&rest, font, size as u16, 1.0).width;
+        (w_first, w_rest, size * 0.06)
+    };
+    let (w_first, w_rest, gap) = measure(size);
+    let size = if w_first + gap + w_rest > max_w {
+        size * max_w / (w_first + gap + w_rest)
+    } else {
+        size
+    };
+    let (w_first, w_rest, gap) = measure(size);
     let big = (size * 1.35) as u16;
     let small = size as u16;
-    let w_first = measure_text(&first, font, big, 1.0).width;
-    let w_rest = measure_text(&rest, font, small, 1.0).width;
-    let gap = size * 0.06;
     let total = w_first + gap + w_rest;
     let x = c.x - total / 2.0;
     let baseline = c.y + size * 0.36;

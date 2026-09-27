@@ -171,7 +171,7 @@ impl MiniGame for Letters {
         pictures::draw(target.picture, pic_c, clue.h * if show_word { 0.3 } else { 0.36 });
         if show_word {
             let c = vec2(clue.center().x, clue.y + clue.h * 0.86);
-            art::word_label(font, target.word, c, clue.h * 0.12, target_color, None);
+            art::word_label(font, target.word, c, clue.h * 0.12, clue.w * 0.9, target_color, None);
         }
 
         // The letter choices.

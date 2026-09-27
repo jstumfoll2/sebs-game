@@ -159,6 +159,15 @@ impl Pattern {
         }
     }
 
+    /// An item on its card, with its label underneath ("RED", "STAR" or "RED STAR").
+    fn draw_item(&self, ctx: &Ctx, r: Rect, item: Item, bob: f32) {
+        let pic = vec2(r.center().x, r.y + r.h * 0.4 + bob);
+        art::draw_thing(item.0, pic, r.w * 0.27, item.1.color());
+        let label = vec2(r.center().x, r.y + r.h * 0.84);
+        let first = art::readable(item.1.color());
+        art::word_label(ctx.font(), &self.word(item), label, r.h * 0.12, r.w * 0.9, first, None);
+    }
+
     fn slot_rects(&self) -> Vec<Rect> {
         row_of_cards(self.shown.len() + 1, 0.94, 0.2, 0.34)
     }
@@ -229,7 +238,7 @@ impl MiniGame for Pattern {
                 art::glow(r, ctx.time);
             }
             art::card(r, WHITE);
-            art::draw_thing(item.0, r.center(), r.w * 0.34, item.1.color());
+            self.draw_item(ctx, r, *item, 0.0);
         }
 
         // The "?" slot, or the answer once found.
@@ -245,7 +254,7 @@ impl MiniGame for Pattern {
                 art::glow(q, ctx.time);
             }
             art::card(q, Color::from_rgba(255, 244, 200, 255));
-            art::draw_thing(self.answer.0, q.center(), q.w * 0.34, self.answer.1.color());
+            self.draw_item(ctx, q, self.answer, 0.0);
         }
 
         // Answer choices.
@@ -257,7 +266,7 @@ impl MiniGame for Pattern {
             }
             art::card(r, WHITE);
             let bob = (ctx.time * 2.5 + i as f32).sin() * r.h * 0.03;
-            art::draw_thing(item.0, r.center() + vec2(0.0, bob), r.w * 0.34, item.1.color());
+            self.draw_item(ctx, r, *item, bob);
         }
     }
 

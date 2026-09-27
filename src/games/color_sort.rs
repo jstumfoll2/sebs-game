@@ -152,6 +152,10 @@ impl MiniGame for ColorSort {
                 r.y -= (ctx.time * 8.0).sin().abs() * r.h * 0.08;
             }
             art::bucket(r, paint.color());
+            // The color's name on the bucket, e.g. "RED".
+            let label_c = vec2(r.center().x, r.y + r.h * 0.8);
+            let color = art::readable(paint.color());
+            art::word_label(ctx.font(), paint.name(), label_c, r.w * 0.14, r.w * 0.6, color, Some(WHITE));
         }
 
         let s = item_size();
@@ -160,12 +164,14 @@ impl MiniGame for ColorSort {
             Phase::Playing if self.dragging => (0.0, 1.15),
             Phase::Playing => ((ctx.time * 3.0).sin() * s * 0.08, 1.0),
         };
-        art::draw_thing(
-            self.thing,
-            self.item_pos + vec2(0.0, bob),
-            s * scale,
-            self.target.color(),
-        );
+        let pos = self.item_pos + vec2(0.0, bob);
+        art::draw_thing(self.thing, pos, s * scale, self.target.color());
+        // The object's name underneath, e.g. "BALL".
+        if self.phase == Phase::Playing {
+            let color = art::readable(self.target.color());
+            let label_c = pos + vec2(0.0, s * scale * 1.35);
+            art::word_label(ctx.font(), self.thing.name(), label_c, s * 0.38, s * 3.0, color, Some(WHITE));
+        }
     }
 
     fn progress(&self) -> &Progress {

@@ -7,11 +7,16 @@ use crate::art::{self, Paint, Thing};
 use crate::ctx::Ctx;
 use macroquad::prelude::*;
 
-pub const NUMBER_WORDS: [&str; 11] = [
+pub const NUMBER_WORDS: [&str; 21] = [
     "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
+    "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen",
+    "nineteen", "twenty",
 ];
 /// Smallest and largest count for each level.
-const RANGES: [(usize, usize); 5] = [(1, 3), (1, 5), (4, 7), (5, 10), (7, 10)];
+/// Levels whose range starts at 0 sometimes show an empty basket: zero means none!
+const RANGES: [(usize, usize); 7] = [(0, 3), (0, 5), (4, 7), (5, 10), (7, 10), (10, 15), (11, 20)];
+/// Biggest number the game uses.
+const MAX_NUMBER: usize = 20;
 /// Minimum seconds per number when counting together after a miss.
 const RECOUNT_STEP: f32 = 0.5;
 
@@ -82,7 +87,12 @@ impl Counting {
 
     fn new_round(&mut self) {
         let (lo, hi) = RANGES[(self.progress.level - 1) as usize];
-        let n = rand::gen_range(lo, hi + 1);
+        // Zero shows up now and then (not every other round!) on levels that include it.
+        let n = if lo == 0 && rand::gen_range(0, 5) == 0 {
+            0
+        } else {
+            rand::gen_range(lo.max(1), hi + 1)
+        };
 
         self.thing = pick(&Thing::ALL);
         self.paint = if self.thing == Thing::Apple {
@@ -92,8 +102,9 @@ impl Counting {
         };
 
         // Scatter objects on a loose grid so they never overlap.
-        let cols = ((n as f32 * 1.8).sqrt().ceil() as usize).max(1);
-        let rows = (n + cols - 1) / cols;
+        // (The play area is wide, so use more columns than rows.)
+        let cols = ((n as f32 * 2.4).sqrt().ceil() as usize).max(1);
+        let rows = ((n + cols - 1) / cols).max(1);
         let mut cells: Vec<usize> = (0..cols * rows).collect();
         shuffle(&mut cells);
         self.spots = cells[..n]
@@ -112,7 +123,7 @@ impl Counting {
         let mut choices = vec![n];
         let mut near: Vec<usize> = [n.wrapping_sub(2), n.wrapping_sub(1), n + 1, n + 2]
             .into_iter()
-            .filter(|&k| (1..=10).contains(&k))
+            .filter(|&k| k <= MAX_NUMBER)
             .collect();
         shuffle(&mut near);
         choices.extend(near.into_iter().take(2));
@@ -124,14 +135,15 @@ impl Counting {
         self.pop = vec![0.0; n];
         self.wiggle = vec![0.0; n];
         self.shake = vec![0.0; self.choices.len()];
-        self.stage = Stage::Tapping;
+        // With nothing to tap, go straight to asking "how many?".
+        self.stage = if n == 0 { Stage::Pause(0.5) } else { Stage::Tapping };
         self.first_try = true;
         self.recount = None;
     }
 
     fn area() -> Rect {
         let (w, h) = (screen_width(), screen_height());
-        Rect::new(w * 0.08, h * 0.16, w * 0.84, h * 0.48)
+        Rect::new(w * 0.08, h * 0.15, w * 0.84, h * 0.46)
     }
 
     fn spot_px(&self, i: usize) -> Vec2 {
@@ -142,11 +154,11 @@ impl Counting {
     fn obj_size(&self) -> f32 {
         let a = Self::area();
         let cell = (a.w / self.grid.0 as f32).min(a.h / self.grid.1 as f32);
-        (cell * 0.3).min(screen_height() * 0.11)
+        (cell * 0.32).min(screen_height() * 0.11)
     }
 
     fn choice_rects(&self) -> Vec<Rect> {
-        super::row_of_cards(self.choices.len(), 0.6, 0.26, 0.81)
+        super::row_of_cards(self.choices.len(), 0.6, 0.24, 0.76)
     }
 
     fn name(&self) -> String {
@@ -196,6 +208,7 @@ impl MiniGame for Counting {
     fn prompt(&self) -> String {
         match self.stage {
             Stage::Choosing => format!("How many {}?", self.thing.plural()),
+            _ if self.n() == 0 => format!("Let's count the {}! Hmm... where are they?", self.name()),
             _ => format!("Let's count the {}! Tap each one.", self.name()),
         }
     }
@@ -248,9 +261,17 @@ impl MiniGame for Counting {
                     let n = self.n();
                     if self.choices[i] == n {
                         let leveled = self.progress.record(self.first_try);
-                        let words = format!("{} {}!", NUMBER_WORDS[n], self.name());
+                        let mut words = format!("{} {}!", NUMBER_WORDS[n], self.name());
+                        if n == 0 {
+                            words += " Zero means none!";
+                        }
                         ctx.correct(rects[i].center(), &words, leveled);
                         self.stage = Stage::Celebrating(2.2);
+                    } else if n == 0 {
+                        self.first_try = false;
+                        self.shake[i] = 1.0;
+                        ctx.wrong("Look, the basket is empty! There are none. None is zero!");
+                        ctx.voice.then(&self.prompt());
                     } else {
                         self.first_try = false;
                         self.shake[i] = 1.0;
@@ -275,6 +296,20 @@ impl MiniGame for Counting {
         let font = ctx.font();
         let s = self.obj_size();
         let lit = self.recount_highlight();
+        let (w, h) = (screen_width(), screen_height());
+
+        // What we're counting, written at the top: "APPLES".
+        let color = art::readable(self.paint.color());
+        let top = vec2(w / 2.0, h * 0.075);
+        art::word_label(font, self.thing.plural(), top, h * 0.05, w * 0.4, color, Some(WHITE));
+
+        if self.n() == 0 {
+            // An empty basket: there's nothing here!
+            let a = Self::area();
+            let size = a.h * 0.7;
+            let r = Rect::new(a.center().x - size * 0.6, a.center().y - size / 2.0, size * 1.2, size);
+            art::bucket(r, Paint::Brown.color());
+        }
 
         for i in 0..self.n() {
             let mut c = self.spot_px(i);
@@ -301,10 +336,12 @@ impl MiniGame for Counting {
                     r = art::scale_rect(r, 1.12 + 0.04 * (ctx.time * 8.0).sin());
                 }
                 art::card(r, WHITE);
-                let color = Paint::ALL[k % Paint::ALL.len()].color();
-                let color = if k % Paint::ALL.len() == 2 { art::darken(color, 0.15) } else { color };
-                art::text_center(font, &k.to_string(), r.center() - vec2(0.0, r.h * 0.12), r.h * 0.55, color);
+                let color = art::readable(Paint::ALL[k % Paint::ALL.len()].color());
+                art::text_center(font, &k.to_string(), r.center() - vec2(0.0, r.h * 0.15), r.h * 0.5, color);
                 number_dots(r, k);
+                // The number's word under the card: "FIVE".
+                let label = vec2(r.center().x, r.y + r.h * 1.16);
+                art::word_label(font, NUMBER_WORDS[k], label, r.h * 0.14, r.w * 1.1, color, Some(WHITE));
             }
         }
     }
@@ -325,14 +362,17 @@ impl MiniGame for Counting {
 
 /// Little dots under the number (rows of five) so the number has a "size" you can see.
 fn number_dots(r: Rect, k: usize) {
-    let gap = r.w * 0.14;
-    let rad = r.w * 0.045;
+    let rows = k.div_ceil(5).max(1);
+    // Squeeze the rows together when there are lots of them (up to 4 rows for 20).
+    let gap = (r.w * 0.14).min(r.h * 0.34 / rows as f32);
+    let rad = gap * 0.32;
+    let top = r.y + r.h * 0.62 + gap / 2.0;
     for i in 0..k {
         let row = i / 5;
         let col = i % 5;
         let in_row = (k - row * 5).min(5);
         let x = r.center().x + (col as f32 - (in_row as f32 - 1.0) / 2.0) * gap;
-        let y = r.y + r.h * 0.72 + row as f32 * gap;
+        let y = top + row as f32 * gap;
         draw_circle(x, y, rad, art::INK);
     }
 }
