@@ -1,10 +1,10 @@
 //! `Ctx` ("context") bundles the things every game needs: input, font, sound, voice, confetti.
 //! It gets passed into each game's `update` and `draw`.
 
-use crate::{fx::Confetti, input::Input, sfx::Sfx, speech::Voice};
+use crate::{fx::Confetti, input::Input, sfx::Sfx, voice::Voice};
 use macroquad::prelude::*;
 
-const PRAISE: [&str; 8] = [
+pub const PRAISE: [&str; 8] = [
     "Great job!",
     "You did it!",
     "Awesome!",

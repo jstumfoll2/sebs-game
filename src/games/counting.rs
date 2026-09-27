@@ -7,7 +7,7 @@ use crate::art::{self, Paint, Thing};
 use crate::ctx::Ctx;
 use macroquad::prelude::*;
 
-const NUMBER_WORDS: [&str; 11] = [
+pub const NUMBER_WORDS: [&str; 11] = [
     "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
 ];
 /// Smallest and largest count for each level.

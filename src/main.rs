@@ -2,6 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod art;
+mod assets;
 mod ctx;
 mod fx;
 mod games;
@@ -10,7 +11,8 @@ mod input;
 mod levels;
 mod menu;
 mod sfx;
-mod speech;
+mod voice;
+mod wav;
 
 use ctx::Ctx;
 use games::{
@@ -50,7 +52,7 @@ async fn main() {
         input: Input::default(),
         font: art::load_font(),
         sfx: sfx::Sfx::load().await,
-        voice: speech::Voice::new(),
+        voice: voice::Voice::new(),
         confetti: fx::Confetti::default(),
         stars: 0,
         star_pop: 0.0,
@@ -69,6 +71,12 @@ async fn main() {
     let mut screen = Screen::Menu;
 
     ctx.voice.say("Hi Sebastian! Pick a game!");
+    // Get common phrases ready in the background so they play instantly later.
+    let mut common: Vec<String> = ctx::PRAISE.iter().map(|s| s.to_string()).collect();
+    common.extend(games::counting::NUMBER_WORDS.iter().map(|s| s.to_string()));
+    common.extend(art::Paint::ALL.iter().map(|p| p.name().to_string()));
+    common.extend(["Pick a game!", "Pick a level!"].map(String::from));
+    ctx.voice.prepare(&common);
 
     loop {
         // Grown-up controls: Esc quits, Up/Down arrows change the level.
@@ -81,6 +89,7 @@ async fn main() {
         ctx.input = Input::read();
         ctx.star_pop = (ctx.star_pop - ctx.dt * 2.0).max(0.0);
         ctx.confetti.update(ctx.dt);
+        ctx.voice.update().await;
 
         // ----- update -----
         match screen {

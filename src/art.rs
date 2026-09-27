@@ -321,7 +321,7 @@ pub fn badge(font: Option<&Font>, c: Vec2, r: f32, text: &str) {
 /// Try a font dropped into `assets/font.ttf`, then friendly Windows fonts, else macroquad's default.
 pub fn load_font() -> Option<Font> {
     let windir = std::env::var("WINDIR").unwrap_or_else(|_| "C:\\Windows".to_string());
-    let mut paths = vec!["assets/font.ttf".to_string()];
+    let mut paths = vec![crate::assets::dir().join("font.ttf").to_string_lossy().into_owned()];
     for name in ["comicbd.ttf", "comic.ttf", "segoeuib.ttf", "arialbd.ttf"] {
         paths.push(format!("{windir}\\Fonts\\{name}"));
     }

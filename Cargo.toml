@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-macroquad = "0.4"
+macroquad = { version = "0.4", features = ["audio"] }
 
 # Build dependencies (macroquad etc.) with optimizations even in debug mode,
 # so `cargo run` stays smooth while our own code still compiles fast.

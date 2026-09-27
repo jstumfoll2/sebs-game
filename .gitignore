@@ -1,1 +1,5 @@
 /target
+# Downloaded by scripts/get-voice.ps1 (too big for git)
+/assets/piper/
+# Voice clips made by the game (re-made automatically)
+/assets/voice-cache/

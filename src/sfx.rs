@@ -1,6 +1,7 @@
 //! Sound effects, synthesized in code (no sound files needed).
 //! We build tiny WAV files in memory from a list of notes, then hand them to macroquad.
 
+use crate::wav;
 use macroquad::audio::{load_sound_from_bytes, play_sound, PlaySoundParams, Sound};
 use std::f32::consts::TAU;
 
@@ -91,24 +92,5 @@ fn wav(notes: &[Note]) -> Vec<u8> {
         }
     }
 
-    let data_len = (count * 2) as u32;
-    let mut out = Vec::with_capacity(44 + count * 2);
-    out.extend_from_slice(b"RIFF");
-    out.extend_from_slice(&(36 + data_len).to_le_bytes());
-    out.extend_from_slice(b"WAVE");
-    out.extend_from_slice(b"fmt ");
-    out.extend_from_slice(&16u32.to_le_bytes()); // size of this chunk
-    out.extend_from_slice(&1u16.to_le_bytes()); // PCM
-    out.extend_from_slice(&1u16.to_le_bytes()); // mono
-    out.extend_from_slice(&RATE.to_le_bytes());
-    out.extend_from_slice(&(RATE * 2).to_le_bytes()); // bytes per second
-    out.extend_from_slice(&2u16.to_le_bytes()); // bytes per sample
-    out.extend_from_slice(&16u16.to_le_bytes()); // bits per sample
-    out.extend_from_slice(b"data");
-    out.extend_from_slice(&data_len.to_le_bytes());
-    for s in buf {
-        let v = (s.clamp(-1.0, 1.0) * i16::MAX as f32) as i16;
-        out.extend_from_slice(&v.to_le_bytes());
-    }
-    out
+    wav::encode(&wav::Audio { samples: buf, channels: 1, rate: RATE })
 }

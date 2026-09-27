@@ -1,4 +1,4 @@
-//! Talking! Uses the text-to-speech voice built into Windows.
+//! Fallback voice: the (robotic) text-to-speech built into Windows, used when Piper isn't installed.
 //!
 //! We start ONE hidden PowerShell process when the game opens and keep it running.
 //! Each line we write to its input gets spoken. Starting PowerShell is slow (~1s),
@@ -42,7 +42,7 @@ while ($true) {
 }
 "#;
 
-pub struct Voice {
+pub struct SapiVoice {
     stdin: Option<ChildStdin>,
     child: Option<Child>,
     /// Lines we've sent to be spoken.
@@ -51,7 +51,7 @@ pub struct Voice {
     finished: Arc<AtomicU64>,
 }
 
-impl Voice {
+impl SapiVoice {
     pub fn new() -> Self {
         let finished = Arc::new(AtomicU64::new(0));
         match spawn_speaker() {
@@ -65,7 +65,7 @@ impl Voice {
                         }
                     }
                 });
-                Voice {
+                SapiVoice {
                     stdin: Some(stdin),
                     child: Some(child),
                     sent: 0,
@@ -73,7 +73,7 @@ impl Voice {
                 }
             }
             // No voice available: the game still works, just silently.
-            None => Voice {
+            None => SapiVoice {
                 stdin: None,
                 child: None,
                 sent: 0,
@@ -109,7 +109,7 @@ impl Voice {
     }
 }
 
-impl Drop for Voice {
+impl Drop for SapiVoice {
     fn drop(&mut self) {
         self.stdin = None;
         if let Some(child) = &mut self.child {
