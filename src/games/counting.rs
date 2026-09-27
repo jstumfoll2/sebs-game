@@ -13,6 +13,19 @@ pub const NUMBER_WORDS: [&str; 21] = [
     "nineteen", "twenty",
 ];
 /// Smallest and largest count for each level.
+/// Any number from 0 to 99 in words: 7 -> "seven", 45 -> "forty-five".
+pub fn number_word(n: usize) -> String {
+    const TENS: [&str; 10] = [
+        "", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety",
+    ];
+    match n {
+        0..=20 => NUMBER_WORDS[n].to_string(),
+        _ if n < 100 && n % 10 == 0 => TENS[n / 10].to_string(),
+        _ if n < 100 => format!("{}-{}", TENS[n / 10], NUMBER_WORDS[n % 10]),
+        _ => n.to_string(),
+    }
+}
+
 /// Levels whose range starts at 0 sometimes show an empty basket: zero means none!
 const RANGES: [(usize, usize); 7] = [(0, 3), (0, 5), (4, 7), (5, 10), (7, 10), (10, 15), (11, 20)];
 /// Biggest number the game uses.
