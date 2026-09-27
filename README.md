@@ -57,6 +57,7 @@ Everything is drawn with code and all sound effects are synthesized. The voice i
 - `--stars 12` starts with 12 stars; `--show-stars` opens the star panel.
 - `--snapshot out.png` saves a screenshot after 2.5 s (`--snapshot-after 5` to change) and quits.
 - `cargo test` runs the unit tests.
+- Every run writes `sebastians-game.log` (taps and what the voice does); `--no-log` turns it off.
 
 ## Code tour (for learning Rust)
 

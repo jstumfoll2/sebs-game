@@ -108,6 +108,7 @@ impl PiperVoice {
     }
 
     pub fn speak(&mut self, text: &str, interrupt: bool) {
+        crate::log::line(&format!("voice {}: {text}", if interrupt { "say" } else { "then" }));
         if interrupt {
             if let Some(s) = self.playing.take() {
                 stop_sound(&s);
@@ -165,6 +166,7 @@ impl PiperVoice {
                     continue;
                 }
                 if let Some((sound, secs)) = self.loaded.get(&next.name) {
+                    crate::log::line(&format!("voice plays {} ({secs:.1}s)", next.name));
                     play_sound(sound, PlaySoundParams { looped: false, volume: 1.0 });
                     self.playing = Some(sound.clone());
                     self.playing_until = get_time() + *secs as f64;

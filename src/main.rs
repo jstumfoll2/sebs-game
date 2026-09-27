@@ -10,6 +10,7 @@ mod games;
 mod hud;
 mod input;
 mod levels;
+mod log;
 mod menu;
 mod pictures;
 mod sfx;
@@ -152,6 +153,19 @@ async fn main() {
         ctx.dt = get_frame_time().min(0.05);
         ctx.time += ctx.dt;
         ctx.input = Input::read();
+        if ctx.input.pressed {
+            let (mx, my) = mouse_position();
+            log::line(&format!(
+                "tap at {:?} (macroquad says {mx:.0},{my:.0}; screen {}x{}, dpi {}; {}; touches {}) on {screen:?}; sound button {:?}",
+                ctx.input.pos,
+                screen_width(),
+                screen_height(),
+                screen_dpi_scale(),
+                input::debug_pointer(),
+                touches().len(),
+                hud::repeat_rect()
+            ));
+        }
         ctx.star_pop = (ctx.star_pop - ctx.dt * 2.0).max(0.0);
         ctx.confetti.update(ctx.dt);
         ctx.voice.update().await;

@@ -27,6 +27,9 @@ impl Input {
         }
         // ...otherwise use the mouse (Windows turns screen taps into mouse clicks).
         let (x, y) = mouse_position();
+        if is_mouse_button_released(MouseButton::Left) {
+            crate::log::line(&format!("release at {:?}", pointer_position().unwrap_or(vec2(x, y))));
+        }
         Input {
             pos: pointer_position().unwrap_or(vec2(x, y)),
             pressed: is_mouse_button_pressed(MouseButton::Left),
@@ -40,13 +43,29 @@ impl Input {
     }
 }
 
-/// Ask Windows directly where the pointer is.
+/// Ask Windows directly where the pointer is, in game units.
 ///
 /// Why: when a finger taps the screen, Windows sends a "button down" without always
 /// moving the mouse there first, and macroquad reports the click at the *previous*
 /// pointer spot. Asking Windows ourselves gives the real tap location.
-#[cfg(windows)]
 fn pointer_position() -> Option<Vec2> {
+    let (p, size) = pointer_raw()?;
+    // Windows measures in real pixels; scale to the game's own units, which can differ
+    // with display scaling (e.g. 150%).
+    Some(vec2(p.x * screen_width() / size.x, p.y * screen_height() / size.y))
+}
+
+/// For the debug log: what Windows reports, before any scaling.
+pub fn debug_pointer() -> String {
+    match pointer_raw() {
+        Some((p, size)) => format!("windows says {:.0},{:.0} in a {:.0}x{:.0} window", p.x, p.y, size.x, size.y),
+        None => "windows pointer unavailable".to_string(),
+    }
+}
+
+/// The pointer's position inside our window and the window's size, both in real pixels.
+#[cfg(windows)]
+fn pointer_raw() -> Option<(Vec2, Vec2)> {
     // FFI: declaring functions that live in Windows' user32.dll so Rust can call them.
     #[repr(C)]
     struct Point {
@@ -86,12 +105,11 @@ fn pointer_position() -> Option<Vec2> {
         if w <= 0.0 || h <= 0.0 {
             return None;
         }
-        // Windows gives real pixels; the game may use scaled units (display scaling).
-        Some(vec2(p.x as f32 * screen_width() / w, p.y as f32 * screen_height() / h))
+        Some((vec2(p.x as f32, p.y as f32), vec2(w, h)))
     }
 }
 
 #[cfg(not(windows))]
-fn pointer_position() -> Option<Vec2> {
+fn pointer_raw() -> Option<(Vec2, Vec2)> {
     None
 }
