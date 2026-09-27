@@ -261,7 +261,21 @@ impl MiniGame for Pattern {
         }
     }
 
-    fn progress(&mut self) -> &mut Progress {
+    fn progress(&self) -> &Progress {
+        &self.progress
+    }
+
+    fn progress_mut(&mut self) -> &mut Progress {
         &mut self.progress
+    }
+
+    fn level_label(&self, level: u32) -> (String, String) {
+        let (big, small) = match level {
+            1 => ("AB", "colors"),
+            2 => ("AB", "shapes"),
+            3 => ("ABC", "AAB"),
+            _ => ("AABB", "ABB"),
+        };
+        (big.to_string(), small.to_string())
     }
 }

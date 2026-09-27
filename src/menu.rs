@@ -6,7 +6,7 @@ use crate::games::letters::letter_name;
 use macroquad::prelude::*;
 
 const TITLE: &str = "Sebastian's Game";
-const LABELS: [&str; 4] = ["Colors", "Patterns", "Letters", "Counting"];
+pub const LABELS: [&str; 4] = ["Colors", "Patterns", "Letters", "Counting"];
 const TILE_COLORS: [(u8, u8, u8); 4] = [(255, 228, 236), (232, 224, 255), (220, 245, 228), (255, 236, 214)];
 
 pub struct Menu {

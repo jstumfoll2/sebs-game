@@ -18,10 +18,14 @@ pub fn repeat_rect() -> Rect {
     Rect::new(s * 1.5, s * 0.25, s, s)
 }
 
-pub fn draw_game_buttons(ctx: &Ctx, level: u32) {
+pub fn draw_home_button() {
     let home = home_rect();
     art::round_button(home.center(), home.w / 2.0);
     art::home_icon(home.center(), home.w / 2.0);
+}
+
+pub fn draw_game_buttons(ctx: &Ctx, level: u32) {
+    draw_home_button();
 
     let rep = repeat_rect();
     art::round_button(rep.center(), rep.w / 2.0);

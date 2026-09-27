@@ -11,7 +11,7 @@ const NUMBER_WORDS: [&str; 11] = [
     "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
 ];
 /// Smallest and largest count for each level.
-const RANGES: [(usize, usize); 4] = [(1, 3), (2, 5), (3, 7), (4, 10)];
+const RANGES: [(usize, usize); 5] = [(1, 3), (1, 5), (4, 7), (5, 10), (7, 10)];
 /// Minimum seconds per number when counting together after a miss.
 const RECOUNT_STEP: f32 = 0.5;
 
@@ -309,8 +309,17 @@ impl MiniGame for Counting {
         }
     }
 
-    fn progress(&mut self) -> &mut Progress {
+    fn progress(&self) -> &Progress {
+        &self.progress
+    }
+
+    fn progress_mut(&mut self) -> &mut Progress {
         &mut self.progress
+    }
+
+    fn level_label(&self, level: u32) -> (String, String) {
+        let (lo, hi) = RANGES[(level - 1) as usize];
+        (format!("{lo}-{hi}"), String::new())
     }
 }
 

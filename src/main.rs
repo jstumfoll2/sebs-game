@@ -7,6 +7,7 @@ mod fx;
 mod games;
 mod hud;
 mod input;
+mod levels;
 mod menu;
 mod sfx;
 mod speech;
@@ -33,6 +34,14 @@ fn window_conf() -> Conf {
     }
 }
 
+/// Which screen we're on. The number is the game (same order as the menu tiles).
+#[derive(Clone, Copy, PartialEq, Debug)]
+enum Screen {
+    Menu,
+    Levels(usize),
+    Playing(usize),
+}
+
 #[macroquad::main(window_conf)]
 async fn main() {
     rand::srand(macroquad::miniquad::date::now() as u64);
@@ -57,8 +66,7 @@ async fn main() {
         Box::new(Counting::new()),
     ];
     let mut menu = menu::Menu::new();
-    // `None` = on the menu, `Some(i)` = playing game number i.
-    let mut current: Option<usize> = None;
+    let mut screen = Screen::Menu;
 
     ctx.voice.say("Hi Sebastian! Pick a game!");
 
@@ -75,15 +83,28 @@ async fn main() {
         ctx.confetti.update(ctx.dt);
 
         // ----- update -----
-        match current {
-            None => {
+        match screen {
+            Screen::Menu => {
                 if let Some(i) = menu.update(&mut ctx) {
                     ctx.sfx.pop();
-                    current = Some(i);
-                    games[i].enter(&mut ctx);
+                    ctx.voice.then("Pick a level!");
+                    screen = Screen::Levels(i);
                 }
             }
-            Some(i) => {
+            Screen::Levels(i) => {
+                if ctx.input.tapped(hud::home_rect()) {
+                    ctx.sfx.pop();
+                    ctx.voice.say("Pick a game!");
+                    screen = Screen::Menu;
+                } else if let Some(level) = levels::update(games[i].as_ref(), &ctx) {
+                    ctx.sfx.pop();
+                    games[i].progress_mut().set_level(level);
+                    ctx.voice.say(&format!("Level {level}!"));
+                    games[i].enter(&mut ctx);
+                    screen = Screen::Playing(i);
+                }
+            }
+            Screen::Playing(i) => {
                 let game = &mut games[i];
                 let level_change = if is_key_pressed(KeyCode::Up) {
                     1
@@ -94,12 +115,12 @@ async fn main() {
                 };
                 if level_change != 0 {
                     let level = game.progress().level as i32 + level_change;
-                    game.progress().set_level(level.max(1) as u32);
+                    game.progress_mut().set_level(level.max(1) as u32);
                     game.enter(&mut ctx);
                 } else if ctx.input.tapped(hud::home_rect()) {
                     ctx.sfx.pop();
                     ctx.voice.say("Pick a game!");
-                    current = None;
+                    screen = Screen::Menu;
                 } else if ctx.input.tapped(hud::repeat_rect()) {
                     ctx.sfx.pop();
                     let prompt = game.prompt();
@@ -112,9 +133,13 @@ async fn main() {
 
         // ----- draw -----
         art::background(ctx.time);
-        match current {
-            None => menu.draw(&ctx),
-            Some(i) => {
+        match screen {
+            Screen::Menu => menu.draw(&ctx),
+            Screen::Levels(i) => {
+                levels::draw(games[i].as_ref(), menu::LABELS[i], &ctx);
+                hud::draw_home_button();
+            }
+            Screen::Playing(i) => {
                 games[i].draw(&ctx);
                 let level = games[i].progress().level;
                 hud::draw_game_buttons(&ctx, level);

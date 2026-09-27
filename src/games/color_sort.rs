@@ -168,8 +168,16 @@ impl MiniGame for ColorSort {
         );
     }
 
-    fn progress(&mut self) -> &mut Progress {
+    fn progress(&self) -> &Progress {
+        &self.progress
+    }
+
+    fn progress_mut(&mut self) -> &mut Progress {
         &mut self.progress
+    }
+
+    fn level_label(&self, level: u32) -> (String, String) {
+        ((level + 1).to_string(), "colors".to_string())
     }
 }
 

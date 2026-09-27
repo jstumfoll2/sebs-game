@@ -11,9 +11,10 @@ The voice uses the text-to-speech built into Windows.
 | **Colors** | Drag (or tap) the object into the matching bucket. The voice says color names. | 2 → 6 buckets, then all 8 colors |
 | **Patterns** | Red, blue, red, blue… what comes next? | AB → ABC, AAB, ABB, AABB; color, shape, or both change |
 | **Letters** | "Find the letter B!" | 5 → 26 letters, 3 → 5 choices |
-| **Counting** | Tap each object to count it (a number badge appears), then pick how many | 1–3 → up to 10 objects |
+| **Counting** | Tap each object to count it (a number badge appears), then pick how many | 1–3, 1–5, 4–7, 5–10, 7–10 objects |
 
-Each game moves up a level after **4 right answers in a row**. After two misses, the right answer
+Tapping a game opens a **level picker**; the current level glows. Each game also moves up
+a level on its own after **4 right answers in a row**. After two misses, the right answer
 glows or bounces as a hint. Wrong answers get a gentle "uh-oh" and never a penalty.
 
 ## Running

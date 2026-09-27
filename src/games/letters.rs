@@ -145,8 +145,17 @@ impl MiniGame for Letters {
         }
     }
 
-    fn progress(&mut self) -> &mut Progress {
+    fn progress(&self) -> &Progress {
+        &self.progress
+    }
+
+    fn progress_mut(&mut self) -> &mut Progress {
         &mut self.progress
+    }
+
+    fn level_label(&self, level: u32) -> (String, String) {
+        let size = POOL_SIZE[(level - 1) as usize];
+        (size.to_string(), "letters".to_string())
     }
 }
 
