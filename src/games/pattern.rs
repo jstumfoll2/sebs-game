@@ -2,7 +2,8 @@
 //! Starts with simple AB color patterns and grows to ABC, AAB, ABB and AABB.
 
 use super::{
-    celebration_over, fade, pick, row_of_cards, shuffle, MiniGame, Phase, Progress, STEP_TIMEOUT,
+    celebration_over, fade, pick, row_of_cards, shuffle, CardDrag, Demo, DragEvent, MiniGame, Phase,
+    Progress, STEP_TIMEOUT,
 };
 use crate::art::{self, Paint, Thing};
 use crate::ctx::Ctx;
@@ -34,6 +35,11 @@ pub struct Pattern {
     shake: Vec<f32>,
     phase: Phase,
     chant: Chant,
+    /// Answers are dragged into the "?" slot; tapping one just says its name.
+    drag: CardDrag,
+    demo: Demo,
+    /// The choice that was dropped in the slot (hidden from the row while celebrating).
+    placed: Option<usize>,
 }
 
 /// After a right answer we "chant" the whole pattern, one item at a time,
@@ -65,6 +71,9 @@ impl Pattern {
             shake: Vec::new(),
             phase: Phase::Playing,
             chant: Chant::default(),
+            drag: CardDrag::default(),
+            demo: Demo::default(),
+            placed: None,
         };
         game.new_round();
         game
@@ -121,6 +130,8 @@ impl Pattern {
         self.first_try = true;
         self.misses = 0;
         self.shake = vec![0.0; self.choices.len()];
+        self.drag.reset();
+        self.placed = None;
         self.phase = Phase::Playing;
     }
 
@@ -180,7 +191,9 @@ impl Pattern {
 impl MiniGame for Pattern {
     fn enter(&mut self, ctx: &mut Ctx) {
         self.new_round();
-        ctx.voice.then(&self.prompt());
+        // Show how to play: a hand drags from the choices up into the "?".
+        self.demo.start(2.0);
+        ctx.voice.then("What comes next? Drag it into the question mark!");
     }
 
     fn prompt(&self) -> String {
@@ -189,6 +202,7 @@ impl MiniGame for Pattern {
 
     fn update(&mut self, ctx: &mut Ctx) {
         fade(&mut self.shake, ctx.dt, 2.5);
+        self.demo.update(ctx);
         match self.phase {
             Phase::Celebrating(_) if !self.chant.done => self.update_chant(ctx),
             Phase::Celebrating(t) => {
@@ -202,19 +216,31 @@ impl MiniGame for Pattern {
             }
             Phase::Playing => {
                 let rects = self.choice_rects();
-                if let Some(i) = rects.iter().position(|r| ctx.input.tapped(*r)) {
-                    if self.choices[i] == self.answer {
-                        let leveled = self.progress.record(self.first_try);
-                        let slot = *self.slot_rects().last().unwrap();
-                        ctx.correct(slot.center(), "Let's say it together!", leveled);
-                        self.phase = Phase::Celebrating(0.0);
-                        self.chant = Chant::default();
-                    } else {
-                        self.first_try = false;
-                        self.misses += 1;
-                        self.shake[i] = 1.0;
-                        ctx.wrong("Hmm, not that one. Try again!");
+                match self.drag.update(&ctx.input, &rects, ctx.dt) {
+                    DragEvent::PickedUp(i) => {
+                        // Touching a choice says what it is.
+                        ctx.sfx.pop();
+                        ctx.voice.say(&self.word(self.choices[i]));
                     }
+                    DragEvent::Dropped(i, at) => {
+                        // Only a choice dropped on the "?" counts as an answer.
+                        let slot = *self.slot_rects().last().unwrap();
+                        if art::scale_rect(slot, 1.6).contains(at) {
+                            if self.choices[i] == self.answer {
+                                let leveled = self.progress.record(self.first_try);
+                                ctx.correct(slot.center(), "Let's say it together!", leveled);
+                                self.phase = Phase::Celebrating(0.0);
+                                self.chant = Chant::default();
+                                self.placed = Some(i);
+                            } else {
+                                self.first_try = false;
+                                self.misses += 1;
+                                self.shake[i] = 1.0;
+                                ctx.wrong("Hmm, not that one. Try again!");
+                            }
+                        }
+                    }
+                    DragEvent::Nothing => {}
                 }
             }
         }
@@ -257,17 +283,28 @@ impl MiniGame for Pattern {
             self.draw_item(ctx, q, self.answer, 0.0);
         }
 
-        // Answer choices.
-        for (i, (r, item)) in self.choice_rects().iter().zip(&self.choices).enumerate() {
-            let mut r = *r;
+        // Answer choices. The one being dragged is drawn last so it's on top.
+        let homes = self.choice_rects();
+        let mut order: Vec<usize> = (0..self.choices.len()).filter(|&i| Some(i) != self.drag.held()).collect();
+        order.extend(self.drag.held());
+        for i in order {
+            if !playing && self.placed == Some(i) {
+                continue; // it's in the "?" slot now
+            }
+            let item = self.choices[i];
+            let mut r = self.drag.rect(i, homes[i]);
             r.x += art::shake_x(self.shake[i], ctx.time);
-            if self.misses >= 2 && *item == self.answer && self.phase == Phase::Playing {
+            if self.misses >= 2 && item == self.answer && playing {
                 art::glow(r, ctx.time);
             }
             art::card(r, WHITE);
             let bob = (ctx.time * 2.5 + i as f32).sin() * r.h * 0.03;
-            self.draw_item(ctx, r, *item, bob);
+            self.draw_item(ctx, r, item, bob);
         }
+
+        // How-to-play: a hand drags from the middle of the choices up to the "?".
+        let from = homes.iter().map(|r| r.center()).sum::<Vec2>() / homes.len().max(1) as f32;
+        self.demo.draw_with_card(from, slots.last().unwrap().center(), homes[0].w * 0.8);
     }
 
     fn progress(&self) -> &Progress {

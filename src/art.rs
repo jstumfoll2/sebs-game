@@ -470,6 +470,30 @@ pub fn home_icon(c: Vec2, r: f32) {
     draw_rectangle(c.x - 0.12 * r, c.y + 0.15 * r, 0.24 * r, 0.32 * r, Paint::Brown.color());
 }
 
+/// A cartoon pointing hand, with the fingertip at `tip`. `pressing` squashes it a little,
+/// like it's pushing down on the screen.
+pub fn hand(tip: Vec2, s: f32, pressing: bool) {
+    let skin = Color::from_rgba(255, 214, 180, 255);
+    let line = Color::from_rgba(200, 140, 110, 255);
+    let squash = if pressing { 0.9 } else { 1.0 };
+    let t = tip + vec2(s * 0.12, 0.0); // tip sits on the point; the hand trails down-right
+    let finger = Rect::new(t.x - 0.13 * s, t.y, 0.26 * s, 0.75 * s * squash);
+    let palm = Rect::new(t.x - 0.2 * s, t.y + 0.5 * s * squash, 0.75 * s, 0.7 * s);
+    // Outline first (slightly bigger, darker), then the skin on top.
+    for (r, col, grow) in [(finger, line, 0.04 * s), (palm, line, 0.04 * s), (finger, skin, 0.0), (palm, skin, 0.0)] {
+        let r = Rect::new(r.x - grow, r.y - grow, r.w + grow * 2.0, r.h + grow * 2.0);
+        rounded_rect(r, r.w.min(r.h) * 0.45, col);
+    }
+    // Folded fingers.
+    for i in 0..3 {
+        let c = vec2(t.x + (0.2 + i as f32 * 0.16) * s, t.y + 0.62 * s * squash);
+        draw_circle(c.x, c.y, 0.1 * s, line);
+        draw_circle(c.x, c.y, 0.08 * s, skin);
+    }
+    // Fingernail.
+    rounded_rect(Rect::new(t.x - 0.08 * s, t.y + 0.05 * s, 0.16 * s, 0.14 * s), 0.05 * s, Color::from_rgba(255, 235, 220, 255));
+}
+
 /// A speech bubble with a question mark: "say the question again".
 pub fn question_bubble_icon(font: Option<&Font>, c: Vec2, r: f32, color: Color) {
     let body = Rect::new(c.x - 0.6 * r, c.y - 0.5 * r, 1.2 * r, 0.85 * r);

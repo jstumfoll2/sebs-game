@@ -1,11 +1,12 @@
 //! Find the letter: a picture clue appears ("ball"), the voice says the letter and its sound
-//! ("Find the letter bee! Buh, buh, ball!"), and Sebastian taps the matching letter.
+//! ("Find the letter bee! Buh, buh, ball!"), and Sebastian drags the matching letter onto
+//! the picture. Tapping a letter just says its name and sound.
 //! Starts with a handful of letters and slowly adds more.
 //!
 //! Hints: after one miss the clue's word appears (its first letter is the answer!);
 //! after two misses the right card glows.
 
-use super::{celebration_over, fade, shuffle, MiniGame, Phase, Progress};
+use super::{celebration_over, fade, shuffle, CardDrag, Demo, DragEvent, MiniGame, Phase, Progress};
 use crate::alphabet::{self, capitalize, Letter};
 use crate::art::{self, Paint};
 use crate::ctx::Ctx;
@@ -29,6 +30,9 @@ pub struct Letters {
     misses: u32,
     shake: Vec<f32>,
     phase: Phase,
+    /// Letters are dragged onto the picture; tapping one just says it.
+    drag: CardDrag,
+    demo: Demo,
 }
 
 impl Letters {
@@ -42,6 +46,8 @@ impl Letters {
             misses: 0,
             shake: Vec::new(),
             phase: Phase::Playing,
+            drag: CardDrag::default(),
+            demo: Demo::default(),
         };
         game.new_round();
         game
@@ -74,7 +80,15 @@ impl Letters {
         self.first_try = true;
         self.misses = 0;
         self.shake = vec![0.0; self.choices.len()];
+        self.drag.reset();
         self.phase = Phase::Playing;
+    }
+
+    /// Where the right letter sits once it's been dropped on the picture.
+    fn placed_rect() -> Rect {
+        let clue = Self::clue_rect();
+        let size = clue.w * 0.38;
+        Rect::new(clue.x + clue.w - size * 0.6, clue.y + clue.h - size * 0.7, size, size)
     }
 
     fn rects(&self) -> Vec<Rect> {
@@ -92,7 +106,10 @@ impl Letters {
 impl MiniGame for Letters {
     fn enter(&mut self, ctx: &mut Ctx) {
         self.new_round();
-        ctx.voice.then(&self.prompt());
+        // Show how to play: a hand drags from the letters up onto the picture.
+        self.demo.start(2.0);
+        let intro = format!("{} Drag the letter onto the picture!", self.prompt());
+        ctx.voice.then(&intro);
     }
 
     fn prompt(&self) -> String {
@@ -107,6 +124,7 @@ impl MiniGame for Letters {
 
     fn update(&mut self, ctx: &mut Ctx) {
         fade(&mut self.shake, ctx.dt, 2.5);
+        self.demo.update(ctx);
         match self.phase {
             Phase::Celebrating(t) => {
                 let t = t - ctx.dt;
@@ -118,33 +136,45 @@ impl MiniGame for Letters {
                 }
             }
             Phase::Playing => {
-                // Tapping the picture clue says the question again.
-                if ctx.input.tapped(Self::clue_rect()) {
+                // Tapping the picture says its letter and sound: "Bee says buh. Buh, buh, ball!"
+                if self.drag.held().is_none() && ctx.input.tapped(Self::clue_rect()) {
                     ctx.sfx.pop();
-                    ctx.voice.say(&self.prompt());
+                    ctx.voice.say(&self.target().teach());
                     return;
                 }
                 let rects = self.rects();
-                if let Some(i) = rects.iter().position(|r| ctx.input.tapped(*r)) {
-                    let target = self.target();
-                    if self.choices[i] == self.target {
-                        let leveled = self.progress.record(self.first_try);
-                        let words = format!("{}! {}", capitalize(target.name), target.teach());
-                        ctx.correct(rects[i].center(), &words, leveled);
-                        self.phase = Phase::Celebrating(1.0);
-                    } else {
-                        let tapped = alphabet::get(self.choices[i]).expect("letters are A-Z");
-                        self.first_try = false;
-                        self.misses += 1;
-                        self.shake[i] = 1.0;
-                        ctx.wrong(&format!(
-                            "That's {}. {} says {}. Can you find {}?",
-                            tapped.name,
-                            capitalize(tapped.name),
-                            tapped.sound(),
-                            target.name
-                        ));
+                match self.drag.update(&ctx.input, &rects, ctx.dt) {
+                    DragEvent::PickedUp(i) => {
+                        // Touching a letter says its name and sound: "Bee! Buh."
+                        let l = alphabet::get(self.choices[i]).expect("letters are A-Z");
+                        ctx.sfx.pop();
+                        ctx.voice.say(&format!("{}! {}.", capitalize(l.name), l.sound()));
                     }
+                    DragEvent::Dropped(i, at) => {
+                        // Only a letter dropped on the picture counts as an answer.
+                        if art::scale_rect(Self::clue_rect(), 1.2).contains(at) {
+                            let target = self.target();
+                            if self.choices[i] == self.target {
+                                let leveled = self.progress.record(self.first_try);
+                                let words = format!("{}! {}", capitalize(target.name), target.teach());
+                                ctx.correct(Self::placed_rect().center(), &words, leveled);
+                                self.phase = Phase::Celebrating(1.0);
+                            } else {
+                                let tapped = alphabet::get(self.choices[i]).expect("letters are A-Z");
+                                self.first_try = false;
+                                self.misses += 1;
+                                self.shake[i] = 1.0;
+                                ctx.wrong(&format!(
+                                    "That's {}. {} says {}. Can you find {}?",
+                                    tapped.name,
+                                    capitalize(tapped.name),
+                                    tapped.sound(),
+                                    target.name
+                                ));
+                            }
+                        }
+                    }
+                    DragEvent::Nothing => {}
                 }
             }
         }
@@ -174,14 +204,19 @@ impl MiniGame for Letters {
             art::word_label(font, target.word, c, clue.h * 0.12, clue.w * 0.9, target_color, None);
         }
 
-        // The letter choices.
-        for (i, (r, letter)) in self.rects().iter().zip(&self.choices).enumerate() {
-            let is_target = *letter == self.target;
-            let mut r = *r;
-            r.x += art::shake_x(self.shake[i], ctx.time);
+        // The letter choices. The one being dragged is drawn last so it's on top.
+        let homes = self.rects();
+        let mut order: Vec<usize> = (0..self.choices.len()).filter(|&i| Some(i) != self.drag.held()).collect();
+        order.extend(self.drag.held());
+        for i in order {
+            let letter = self.choices[i];
+            let is_target = letter == self.target;
+            let mut r = self.drag.rect(i, homes[i]);
             if celebrating && is_target {
-                r = art::scale_rect(r, 1.12 + 0.04 * (ctx.time * 8.0).sin());
+                // The right letter sticks to the corner of the picture.
+                r = art::scale_rect(Self::placed_rect(), 1.0 + 0.06 * (ctx.time * 8.0).sin());
             }
+            r.x += art::shake_x(self.shake[i], ctx.time);
             if self.misses >= 2 && is_target && !celebrating {
                 art::glow(r, ctx.time);
             }
@@ -189,6 +224,10 @@ impl MiniGame for Letters {
             let color = self.colors[i % self.colors.len()].color();
             art::text_center(font, &letter.to_string(), r.center(), r.h * 0.75, color);
         }
+
+        // How-to-play: a hand drags from the middle of the letters up onto the picture.
+        let from = homes.iter().map(|r| r.center()).sum::<Vec2>() / homes.len().max(1) as f32;
+        self.demo.draw_with_card(from, Self::clue_rect().center(), homes[0].w * 0.8);
     }
 
     fn progress(&self) -> &Progress {

@@ -1,7 +1,8 @@
-//! Color sorting: drag the object into the bucket that matches its color (or just tap the bucket).
-//! The voice names colors on pick-up, on success, and on a miss, to connect colors with their names.
+//! Color sorting: drag the object into the bucket that matches its color.
+//! Tapping a bucket just says its color; only dragging answers. The voice names colors on
+//! pick-up, on success, and on a miss, to connect colors with their names.
 
-use super::{celebration_over, fade, pick, shuffle, MiniGame, Phase, Progress};
+use super::{celebration_over, fade, pick, shuffle, Demo, MiniGame, Phase, Progress};
 use crate::art::{self, Paint, Thing};
 use crate::ctx::Ctx;
 use macroquad::prelude::*;
@@ -23,6 +24,9 @@ pub struct ColorSort {
     shake: Vec<f32>,
     phase: Phase,
     chosen: usize,
+    /// Buckets hop when tapped.
+    hop: Vec<f32>,
+    demo: Demo,
 }
 
 impl ColorSort {
@@ -40,6 +44,8 @@ impl ColorSort {
             shake: Vec::new(),
             phase: Phase::Playing,
             chosen: 0,
+            hop: Vec::new(),
+            demo: Demo::default(),
         };
         game.new_round();
         game
@@ -63,6 +69,7 @@ impl ColorSort {
         self.first_try = true;
         self.misses = 0;
         self.shake = vec![0.0; count];
+        self.hop = vec![0.0; count];
         self.phase = Phase::Playing;
     }
 
@@ -87,7 +94,13 @@ impl ColorSort {
 impl MiniGame for ColorSort {
     fn enter(&mut self, ctx: &mut Ctx) {
         self.new_round();
-        ctx.voice.then(&self.prompt());
+        // Show how to play: a hand drags the object down toward the buckets.
+        self.demo.start(2.0);
+        ctx.voice.then(&format!(
+            "Drag the {} {} into the bucket with the same color!",
+            self.target.name(),
+            self.thing.name()
+        ));
     }
 
     fn prompt(&self) -> String {
@@ -96,6 +109,8 @@ impl MiniGame for ColorSort {
 
     fn update(&mut self, ctx: &mut Ctx) {
         fade(&mut self.shake, ctx.dt, 2.5);
+        fade(&mut self.hop, ctx.dt, 3.0);
+        self.demo.update(ctx);
         let rects = bucket_rects(self.buckets.len());
 
         match self.phase {
@@ -119,9 +134,12 @@ impl MiniGame for ColorSort {
                         self.dragging = true;
                         self.grab_offset = self.item_pos - input.pos;
                         ctx.sfx.pop();
-                        ctx.voice.say(&format!("{}!", self.target.name()));
+                        ctx.voice.say(&format!("{} {}!", self.target.name(), self.thing.name()));
                     } else if let Some(i) = rects.iter().position(|r| r.contains(input.pos)) {
-                        self.choose(i, ctx);
+                        // Tapping a bucket just says its color. Answering means dragging.
+                        self.hop[i] = 1.0;
+                        ctx.sfx.pop();
+                        ctx.voice.say(&format!("{}!", capitalize(self.buckets[i].name())));
                     }
                 }
                 if self.dragging {
@@ -151,6 +169,7 @@ impl MiniGame for ColorSort {
             if self.misses >= 2 && *paint == self.target && self.phase == Phase::Playing {
                 r.y -= (ctx.time * 8.0).sin().abs() * r.h * 0.08;
             }
+            r.y -= (self.hop[i] * std::f32::consts::PI).sin() * r.h * 0.1;
             art::bucket(r, paint.color());
             // The color's name on the bucket, e.g. "RED".
             let label_c = vec2(r.center().x, r.y + r.h * 0.8);
@@ -164,7 +183,9 @@ impl MiniGame for ColorSort {
             Phase::Playing if self.dragging => (0.0, 1.15),
             Phase::Playing => ((ctx.time * 3.0).sin() * s * 0.08, 1.0),
         };
-        let pos = self.item_pos + vec2(0.0, bob);
+        // During the how-to-play demo, the hand carries the object toward the buckets.
+        let demo_to = vec2(screen_width() / 2.0, screen_height() * 0.6);
+        let pos = self.demo.carry(home(), demo_to).unwrap_or(self.item_pos + vec2(0.0, bob));
         art::draw_thing(self.thing, pos, s * scale, self.target.color());
         // The object's name underneath, e.g. "BALL".
         if self.phase == Phase::Playing {
@@ -172,6 +193,7 @@ impl MiniGame for ColorSort {
             let label_c = pos + vec2(0.0, s * scale * 1.35);
             art::word_label(ctx.font(), self.thing.name(), label_c, s * 0.38, s * 3.0, color, Some(WHITE));
         }
+        self.demo.draw(home(), demo_to);
     }
 
     fn progress(&self) -> &Progress {

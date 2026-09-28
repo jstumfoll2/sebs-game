@@ -24,11 +24,13 @@ Everything is drawn with code and all sound effects are synthesized. The voice i
 
 | Game | What it teaches | Levels |
 |------|-----------------|--------|
-| **Colors** | Drag (or tap) the object into the matching bucket. Buckets are labeled with color words. | 2 → 6 colors |
-| **Patterns** | Red, blue, red, blue… what comes next? The voice chants the pattern, lighting each item up. | AB → ABC, AAB, ABB, AABB |
-| **Letters** | A picture clue ("ball") and the letter's sound: "Find the letter bee! Buh, buh, ball!" | 5 → 26 letters |
+| **Colors** | Drag the object into the matching bucket. Tapping a bucket says its color. | 2 → 6 colors |
+| **Patterns** | Red, blue, red, blue… drag what comes next into the "?". Tapping a choice says its name. | AB → ABC, AAB, ABB, AABB |
+| **Letters** | A picture clue ("ball") and the letter's sound: "Find the letter bee! Buh, buh, ball!" Drag the letter onto the picture; tapping a letter or the picture says its name and sound. | 5 → 26 letters |
 | **Counting** | Tap each object to count it, then pick how many. Includes zero ("zero means none!"). | 0–3, 0–5, 4–7, 5–10, 7–10, 10–15, 11–20 |
 
+- In Colors, Patterns and Letters, **tapping** an answer just says its name; **dragging** it to
+  the target answers. A cartoon hand shows how to drag when each game starts.
 - Tapping a game opens a **level picker**; the current level glows. Games also level up on
   their own after **4 right answers in a row**.
 - Hints after misses (the right answer glows or bounces). Wrong answers never cost anything.
