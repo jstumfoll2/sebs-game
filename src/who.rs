@@ -16,6 +16,8 @@ pub enum Pick {
     AddNew,
     /// A grown-up confirmed removing this player.
     Remove(usize),
+    /// The "2 Players" button: set up a two-player match.
+    Versus,
 }
 
 /// The "Who's playing?" screen. A grown-up can tap "Edit" to remove players.
@@ -45,6 +47,12 @@ fn player_cards(players: usize) -> Vec<Rect> {
             Rect::new(x0 + shift + col * cell + (cell - size) / 2.0, y0 + row * cell, size, size)
         })
         .collect()
+}
+
+/// The "2 Players" button in the bottom-left corner.
+fn versus_rect() -> Rect {
+    let (w, h) = (screen_width(), screen_height());
+    Rect::new(w * 0.03, h - h * 0.14, h * 0.4, h * 0.11)
 }
 
 /// The small "Edit" button in the bottom-right corner (for grown-ups).
@@ -93,6 +101,10 @@ impl Picker {
                 ctx.sfx.pop();
             }
             return Pick::Nothing;
+        }
+        if !self.editing && players.players.len() >= 2 && versus_rect().contains(ctx.input.pos) {
+            ctx.sfx.pop();
+            return Pick::Versus;
         }
         if edit_rect().contains(ctx.input.pos) {
             self.editing = !self.editing;
@@ -157,6 +169,15 @@ impl Picker {
                     art::text_center(font, "New", vec2(r.center().x, r.y + r.h * 0.76), r.h * 0.13, art::INK);
                 }
             }
+        }
+
+        // The "2 Players" button (once there are two players to pick from).
+        if !self.editing && players.players.len() >= 2 {
+            let v = versus_rect();
+            let pulse = art::scale_rect(v, 1.0 + 0.03 * (ctx.time * 3.0).sin());
+            art::card(pulse, Paint::Purple.color());
+            art::people_icon(vec2(pulse.x + pulse.h * 0.5, pulse.center().y), pulse.h * 0.42);
+            art::text_left(font, "2 Players", pulse.x + pulse.h * 0.95, pulse.center().y, pulse.h * 0.42, WHITE);
         }
 
         // The grown-up "Edit" / "Done" button.

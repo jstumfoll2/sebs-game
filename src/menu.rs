@@ -6,7 +6,11 @@ use crate::alphabet::{self, capitalize};
 use macroquad::prelude::*;
 
 /// "Sebastian's Game", or "James' Game" for a name ending in s.
-fn title(name: &str) -> String {
+fn title(ctx: &Ctx) -> String {
+    let name = &ctx.name;
+    if ctx.versus.is_some() {
+        return format!("{name}'s turn!");
+    }
     if name.ends_with('s') {
         format!("{name}' Game")
     } else {
@@ -42,7 +46,7 @@ impl Menu {
 
     /// Returns the index of the game that was tapped, if any.
     pub fn update(&mut self, ctx: &mut Ctx) -> Option<usize> {
-        let title = title(&ctx.name);
+        let title = title(ctx);
         self.bounce.resize(title.chars().count(), 0.0);
         crate::games::fade(&mut self.bounce, ctx.dt, 2.0);
         if !ctx.input.pressed {
@@ -57,7 +61,7 @@ impl Menu {
             }
         }
 
-        let (size, letters) = title_layout(ctx.font(), &title);
+        let (size, letters) = title_layout(ctx.font(), &title, title_room(ctx));
         for (i, (ch, c, w)) in letters.iter().enumerate() {
             let hit = Rect::new(c.x - w / 2.0, c.y - size * 0.6, *w, size * 1.2);
             if ch.is_alphabetic() && hit.contains(p) {
@@ -76,7 +80,7 @@ impl Menu {
         let font = ctx.font();
 
         // Rainbow title; each letter gently waves and hops when tapped.
-        let (size, letters) = title_layout(font, &title(&ctx.name));
+        let (size, letters) = title_layout(font, &title(ctx), title_room(ctx));
         for (i, (ch, c, _)) in letters.iter().enumerate() {
             let bounce = self.bounce.get(i).copied().unwrap_or(0.0);
             let hop = (bounce * std::f32::consts::PI).sin() * size * 0.35;
@@ -127,7 +131,17 @@ pub fn tiles() -> Vec<Rect> {
 }
 
 /// Font size plus (letter, center, width) for each title character.
-fn title_layout(font: Option<&Font>, title: &str) -> (f32, Vec<(char, Vec2, f32)>) {
+/// How much of the screen width the title may use (less in a match, to leave room for
+/// both players' scores).
+fn title_room(ctx: &Ctx) -> f32 {
+    if ctx.versus.is_some() {
+        0.38
+    } else {
+        0.46
+    }
+}
+
+fn title_layout(font: Option<&Font>, title: &str, room: f32) -> (f32, Vec<(char, Vec2, f32)>) {
     let (w, h) = (screen_width(), screen_height());
     let measure = |size: f32| -> Vec<f32> {
         title
@@ -144,8 +158,8 @@ fn title_layout(font: Option<&Font>, title: &str) -> (f32, Vec<(char, Vec2, f32)
     // Start big, then shrink long names so the title fits between the top buttons.
     let mut size = (h * 0.12).min(w * 0.066);
     let natural: f32 = measure(size).iter().sum();
-    if natural > w * 0.46 {
-        size *= w * 0.46 / natural;
+    if natural > w * room {
+        size *= w * room / natural;
     }
     let widths = measure(size);
     let total: f32 = widths.iter().sum();

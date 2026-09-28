@@ -107,10 +107,6 @@ impl Fireworks {
         self.show_left = 0.0;
     }
 
-    pub fn active(&self) -> bool {
-        self.show_left > 0.0 || !self.rockets.is_empty() || !self.sparks.is_empty()
-    }
-
     fn launch(&mut self) {
         let (w, h) = (screen_width(), screen_height());
         let paint = Paint::ALL[rand::gen_range(0, Paint::ALL.len())];

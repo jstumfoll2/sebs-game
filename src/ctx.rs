@@ -21,6 +21,30 @@ pub const PRAISE: [&str; 8] = [
     "Wow!",
 ];
 
+/// A two-player match: first to `goal` stars wins. Turns switch after each star.
+/// Scores here are just for this match (they don't change anyone's saved stars).
+pub struct Match {
+    pub names: [String; 2],
+    /// Each player's color (their spot in the players list), for their avatar.
+    pub colors: [usize; 2],
+    pub scores: [u32; 2],
+    /// Whose turn it is (0 or 1).
+    pub turn: usize,
+    pub goal: u32,
+}
+
+/// Somebody won! Shown on the winner screen.
+#[derive(Clone, Debug)]
+pub enum Win {
+    /// One player reached a star milestone (50, 100, ...).
+    Solo { name: String, stars: u32 },
+    /// A two-player match: the winner and the other player, with their stars.
+    Versus { winner: String, winner_stars: u32, other: String, other_stars: u32, colors: [usize; 2] },
+}
+
+/// Solo players get the winner screen every this many stars.
+pub const SOLO_GOAL: u32 = 50;
+
 pub struct Ctx {
     pub input: Input,
     pub font: Option<Font>,
@@ -41,6 +65,10 @@ pub struct Ctx {
     /// Makes the top buttons bounce when tapped: [home, say again, speaker]. Fades 1 -> 0.
     pub button_pop: [f32; 3],
     pub last_mute_toggle: f32,
+    /// A two-player match, if one is going.
+    pub versus: Option<Match>,
+    /// Set when someone wins; the app then shows the winner screen.
+    pub win: Option<Win>,
 }
 
 impl Ctx {
@@ -68,12 +96,35 @@ impl Ctx {
     pub fn correct(&mut self, at: Vec2, words: &str, leveled_up: bool) {
         self.sfx.ding();
         self.confetti.burst(at, if leveled_up { 140 } else { 60 });
-        self.stars += 1;
         self.star_pop = 1.0;
         let praise = PRAISE[rand::gen_range(0, PRAISE.len())].replace("NAME", &self.name);
         self.voice.say(&format!("{praise} {words}"));
         if leveled_up {
             self.sfx.tada(); // the "Level 3 done!" banner says the rest
+        }
+
+        if let Some(m) = &mut self.versus {
+            // Two players: the star goes to whoever's turn it is, then it's the other's turn.
+            let t = m.turn;
+            m.scores[t] += 1;
+            if m.scores[t] >= m.goal {
+                self.win = Some(Win::Versus {
+                    winner: m.names[t].clone(),
+                    winner_stars: m.scores[t],
+                    other: m.names[1 - t].clone(),
+                    other_stars: m.scores[1 - t],
+                    colors: [m.colors[t], m.colors[1 - t]],
+                });
+            } else {
+                m.turn = 1 - t;
+                self.name = m.names[m.turn].clone();
+                self.voice.then(&format!("Now it's {}'s turn!", self.name));
+            }
+        } else {
+            self.stars += 1;
+            if self.stars % SOLO_GOAL == 0 {
+                self.win = Some(Win::Solo { name: self.name.clone(), stars: self.stars });
+            }
         }
     }
 

@@ -19,9 +19,11 @@ mod players;
 mod render;
 mod sfx;
 mod stars;
+mod versus;
 mod voice;
 mod wav;
 mod who;
+mod winner;
 
 use ctx::Ctx;
 use games::{
@@ -76,6 +78,10 @@ enum Screen {
     Menu,
     Levels(usize),
     Playing(usize),
+    /// Setting up a two-player match.
+    VersusSetup,
+    /// Somebody won!
+    Winner,
 }
 
 /// Everything the game keeps track of between frames (besides `Ctx`).
@@ -92,6 +98,8 @@ struct App {
     star_panel: stars::StarPanel,
     /// "Level 3 done!" while it's showing.
     banner: Option<banner::LevelBanner>,
+    versus_setup: versus::VersusSetup,
+    winner: Option<winner::Winner>,
 }
 
 impl App {
@@ -152,6 +160,7 @@ impl App {
     }
 
     fn show_players(&mut self, ctx: &mut Ctx) {
+        ctx.versus = None; // going back to "Who's playing?" ends any two-player match
         self.screen = Screen::Players;
         ctx.voice.say("Who's playing?");
     }
@@ -178,8 +187,25 @@ impl App {
         }
     }
 
+    /// Start a two-player match: first to `goal` stars wins. Player `a` goes first.
+    fn start_versus(&mut self, a: usize, b: usize, goal: u32, ctx: &mut Ctx) {
+        let names = [self.players.players[a].name.clone(), self.players.players[b].name.clone()];
+        ctx.voice.say(&format!(
+            "{} versus {}! First to {goal} stars wins. {} goes first! Pick a game!",
+            names[0], names[1], names[0]
+        ));
+        ctx.name = names[0].clone();
+        ctx.versus = Some(ctx::Match { names, colors: [a, b], scores: [0, 0], turn: 0, goal });
+        self.current = None; // match scores are separate: nobody's saved stars change
+        self.menu = menu::Menu::new();
+        self.screen = Screen::Menu;
+    }
+
     fn picking_player(&self) -> bool {
-        matches!(self.screen, Screen::Players | Screen::NewName | Screen::KeepStars(_))
+        matches!(
+            self.screen,
+            Screen::Players | Screen::NewName | Screen::KeepStars(_) | Screen::VersusSetup | Screen::Winner
+        )
     }
 
     /// Handle taps and game logic for whichever screen we're on.
@@ -191,7 +217,7 @@ impl App {
             return;
         }
         // The star panel (tap the star counter) sits on top of everything while it's open.
-        if !self.picking_player() && self.star_panel.update(ctx) {
+        if !self.picking_player() && ctx.versus.is_none() && self.star_panel.update(ctx) {
             return;
         }
 
@@ -206,8 +232,31 @@ impl App {
                     self.new_name(ctx);
                 }
                 who::Pick::Remove(i) => self.remove_player(i, ctx),
+                who::Pick::Versus => {
+                    self.versus_setup.start(ctx);
+                    self.screen = Screen::VersusSetup;
+                }
                 who::Pick::Nothing => {}
             },
+            Screen::VersusSetup => match self.versus_setup.update(&self.players, ctx) {
+                versus::Setup::Start { first, second, goal } => self.start_versus(first, second, goal, ctx),
+                versus::Setup::Back => self.show_players(ctx),
+                versus::Setup::Nothing => {}
+            },
+            Screen::Winner => {
+                if let Some(w) = &mut self.winner {
+                    if w.update(ctx) {
+                        let was_versus = w.is_versus();
+                        self.winner = None;
+                        if was_versus {
+                            self.show_players(ctx);
+                        } else {
+                            ctx.voice.say("Let's keep playing! Pick a game!");
+                            self.screen = Screen::Menu;
+                        }
+                    }
+                }
+            }
             Screen::KeepStars(i) => match who::update_star_choice(ctx) {
                 who::StarChoice::Keep => {
                     ctx.sfx.pop();
@@ -301,6 +350,12 @@ impl App {
                 self.banner = None;
             }
         }
+        // Somebody won? On to the winner screen.
+        if let Some(win) = ctx.win.take() {
+            self.banner = None;
+            self.winner = Some(winner::Winner::new(win, ctx));
+            self.screen = Screen::Winner;
+        }
         self.save_progress(ctx);
     }
 
@@ -308,6 +363,12 @@ impl App {
         art::background(ctx.time);
         match self.screen {
             Screen::Players => self.picker.draw(&self.players, ctx),
+            Screen::VersusSetup => self.versus_setup.draw(&self.players, ctx),
+            Screen::Winner => {
+                if let Some(w) = &self.winner {
+                    w.draw(ctx);
+                }
+            }
             Screen::KeepStars(i) => {
                 let p = &self.players.players[i];
                 who::draw_star_choice(&p.name, p.stars, ctx);
@@ -328,7 +389,10 @@ impl App {
             }
         }
         if !self.picking_player() {
-            hud::draw_stars(ctx);
+            match &ctx.versus {
+                Some(m) => hud::draw_scores(ctx, m),
+                None => hud::draw_stars(ctx),
+            }
         }
         hud::draw_mute_button(ctx);
         if let Some(b) = &self.banner {
@@ -360,6 +424,8 @@ async fn main() {
         muted: false,
         button_pop: [0.0; 3],
         last_mute_toggle: -1.0,
+        versus: None,
+        win: None,
     };
 
     let mut app = App {
@@ -382,6 +448,8 @@ async fn main() {
         picker: who::Picker::default(),
         star_panel: stars::StarPanel::default(),
         banner: None,
+        versus_setup: versus::VersusSetup::default(),
+        winner: None,
     };
     let mut taps = input::TapFilter::default();
 
@@ -459,6 +527,27 @@ async fn main() {
     }
     if std::env::args().any(|a| a == "--show-stars") {
         app.star_panel.open(&mut ctx);
+    }
+
+    // `--versus 0:1:10` starts a match between players 0 and 1, first to 10 stars.
+    if let Some(v) = arg_value("--versus") {
+        let n: Vec<usize> = v.split(':').filter_map(|s| s.parse().ok()).collect();
+        if n.len() == 3 && n[0].max(n[1]) < app.players.players.len() {
+            app.start_versus(n[0], n[1], n[2] as u32, &mut ctx);
+        }
+    }
+    // `--demo-win` shows the winner screen (a pretend 10-7 match, or 50 stars solo).
+    if std::env::args().any(|a| a == "--demo-win") {
+        ctx.win = Some(match &ctx.versus {
+            Some(m) => ctx::Win::Versus {
+                winner: m.names[0].clone(),
+                winner_stars: 10,
+                other: m.names[1].clone(),
+                other_stars: 7,
+                colors: m.colors,
+            },
+            None => ctx::Win::Solo { name: ctx.name.clone(), stars: 50 },
+        });
     }
 
     // `--banner` shows the "Level 2 done!" banner (to check how it looks).

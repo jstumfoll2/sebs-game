@@ -52,6 +52,16 @@ keyboard or the laptop keyboard). Add more kids from the **"Who's playing?"** sc
 people button, top-left on the home screen). Each kid keeps their own stars and levels, saved in
 `%APPDATA%\sebastians-game\players.json` (you can edit it by hand, e.g. to fix a name).
 
+**Two players:** tap **2 Players** on "Who's playing?", pick two kids and a goal (first to 5, 10,
+15 or 20 stars). Turns switch after every star; both scores show in the top-right corner, and the
+winner gets a fireworks screen that compares the two scores ("10 is more than 7!"). Match scores
+are separate from each kid's own saved stars.
+
+**Winner screen:** playing alone, every 50 stars brings fireworks and a "50 stars!" screen.
+
+**Level tracking:** finishing a level (4 right in a row) shows a "Level 3 done! On to level 4!"
+banner, and the level picker puts a green check on finished levels (saved per player).
+
 To remove a player, tap **Edit** (bottom-right of "Who's playing?"), then the red X, then
 **Remove**. When a player with stars is picked, the game asks whether to **keep** their stars or
 **start at 0** (levels are kept either way).
@@ -74,6 +84,8 @@ To remove a player, tap **Edit** (bottom-right of "Who's playing?"), then the re
 
 - `--gallery` shows all 26 alphabet pictures.
 - `--levels 0` opens game 0's level picker.
+- `--versus 0:1:10` starts a match between players 0 and 1 (first to 10); `--demo-win` shows
+  the winner screen; `--banner` shows the "level done" banner.
 - `--pick 0` picks player 0; `--edit-players` opens the remove-a-player mode.
 - `--things` shows every object and shape; `--solve` fills in the puzzle; `--page 8` opens a coloring page.
 - `--start 3:5` jumps straight into game 3 (Counting) at level 5. Games count from 0
