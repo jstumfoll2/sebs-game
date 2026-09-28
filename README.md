@@ -34,6 +34,8 @@ Everything is drawn with code and all sound effects are synthesized. The voice i
 - Hints after misses (the right answer glows or bounces). Wrong answers never cost anything.
 - Words are labeled in capitals with the **first letter big**, to connect words and letters.
 - **Stars:** every right answer earns a star. Tap the star counter to count them all together.
+- **Top buttons:** home, a "?" speech bubble (says the question again), and the speaker in the
+  top-right corner, which turns all sound off (red X) and back on.
 - Tap a letter in the title on the home screen to hear its name and sound.
 
 ## Grown-up controls

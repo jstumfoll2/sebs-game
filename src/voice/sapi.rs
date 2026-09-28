@@ -49,6 +49,7 @@ pub struct SapiVoice {
     sent: u64,
     /// Lines PowerShell has finished speaking (updated by a background thread).
     finished: Arc<AtomicU64>,
+    muted: bool,
 }
 
 impl SapiVoice {
@@ -70,6 +71,7 @@ impl SapiVoice {
                     child: Some(child),
                     sent: 0,
                     finished,
+                    muted: false,
                 }
             }
             // No voice available: the game still works, just silently.
@@ -78,6 +80,7 @@ impl SapiVoice {
                 child: None,
                 sent: 0,
                 finished,
+                muted: false,
             },
         }
     }
@@ -85,6 +88,14 @@ impl SapiVoice {
     /// Is the voice still talking (or about to)?
     pub fn busy(&self) -> bool {
         self.stdin.is_some() && self.finished.load(Ordering::Relaxed) < self.sent
+    }
+
+    /// Muting stops any speech; while muted nothing is said.
+    pub fn set_muted(&mut self, muted: bool) {
+        if muted {
+            self.send("!");
+        }
+        self.muted = muted;
     }
 
     /// Stop talking and say this right now.
@@ -98,6 +109,9 @@ impl SapiVoice {
     }
 
     fn send(&mut self, line: &str) {
+        if self.muted {
+            return;
+        }
         if let Some(stdin) = &mut self.stdin {
             let ok = writeln!(stdin, "{line}").and_then(|_| stdin.flush());
             if ok.is_ok() {

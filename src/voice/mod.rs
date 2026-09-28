@@ -90,6 +90,14 @@ impl Voice {
         }
     }
 
+    /// Turn the voice's sound off or on.
+    pub fn set_muted(&mut self, muted: bool) {
+        match self {
+            Voice::Piper(p) => p.set_muted(muted),
+            Voice::Sapi(s) => s.set_muted(muted),
+        }
+    }
+
     /// Is the voice still talking (or about to)?
     pub fn busy(&self) -> bool {
         match self {

@@ -470,7 +470,29 @@ pub fn home_icon(c: Vec2, r: f32) {
     draw_rectangle(c.x - 0.12 * r, c.y + 0.15 * r, 0.24 * r, 0.32 * r, Paint::Brown.color());
 }
 
-pub fn speaker_icon(c: Vec2, r: f32, color: Color) {
+/// A speech bubble with a question mark: "say the question again".
+pub fn question_bubble_icon(font: Option<&Font>, c: Vec2, r: f32, color: Color) {
+    let body = Rect::new(c.x - 0.6 * r, c.y - 0.5 * r, 1.2 * r, 0.85 * r);
+    rounded_rect(body, 0.3 * r, color);
+    draw_triangle(
+        vec2(c.x - 0.35 * r, c.y + 0.3 * r),
+        vec2(c.x - 0.05 * r, c.y + 0.3 * r),
+        vec2(c.x - 0.45 * r, c.y + 0.6 * r),
+        color,
+    );
+    text_center(font, "?", vec2(c.x, c.y - 0.08 * r), 0.8 * r, WHITE);
+}
+
+/// The speaker with a red X: sound is off.
+pub fn muted_speaker_icon(c: Vec2, r: f32, color: Color) {
+    speaker_body(c, r, color);
+    let red = Paint::Red.color();
+    let (x0, x1, y0, y1) = (c.x + 0.15 * r, c.x + 0.55 * r, c.y - 0.2 * r, c.y + 0.2 * r);
+    draw_line(x0, y0, x1, y1, 0.1 * r, red);
+    draw_line(x0, y1, x1, y0, 0.1 * r, red);
+}
+
+fn speaker_body(c: Vec2, r: f32, color: Color) {
     draw_rectangle(c.x - 0.55 * r, c.y - 0.18 * r, 0.25 * r, 0.36 * r, color);
     let a = vec2(c.x - 0.35 * r, c.y - 0.18 * r);
     let b = vec2(c.x + 0.05 * r, c.y - 0.45 * r);
@@ -478,6 +500,10 @@ pub fn speaker_icon(c: Vec2, r: f32, color: Color) {
     let d = vec2(c.x - 0.35 * r, c.y + 0.18 * r);
     draw_triangle(a, b, cc, color);
     draw_triangle(a, cc, d, color);
+}
+
+pub fn speaker_icon(c: Vec2, r: f32, color: Color) {
+    speaker_body(c, r, color);
     for rad in [0.25, 0.45] {
         arc(vec2(c.x + 0.05 * r, c.y), rad * r, -0.3 * PI, 0.3 * PI, 0.08 * r, color);
     }

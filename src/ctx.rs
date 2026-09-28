@@ -27,9 +27,30 @@ pub struct Ctx {
     pub star_pop: f32,
     pub time: f32,
     pub dt: f32,
+    /// Sound turned off with the speaker button.
+    pub muted: bool,
+    /// Makes the top buttons bounce when tapped: [home, say again, speaker]. Fades 1 -> 0.
+    pub button_pop: [f32; 3],
+    pub last_mute_toggle: f32,
 }
 
 impl Ctx {
+    /// The speaker button: turn all sound off or back on.
+    pub fn toggle_mute(&mut self) {
+        // Ignore a second toggle right away, so one tap can never flip it twice.
+        if self.time - self.last_mute_toggle < 0.5 {
+            return;
+        }
+        self.last_mute_toggle = self.time;
+        self.muted = !self.muted;
+        self.sfx.muted = self.muted;
+        self.voice.set_muted(self.muted);
+        if !self.muted {
+            self.sfx.pop();
+            self.voice.say("Sound on!");
+        }
+    }
+
     pub fn font(&self) -> Option<&Font> {
         self.font.as_ref()
     }

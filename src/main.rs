@@ -22,7 +22,6 @@ use ctx::Ctx;
 use games::{
     color_sort::ColorSort, counting::Counting, letters::Letters, pattern::Pattern, MiniGame,
 };
-use input::Input;
 use macroquad::prelude::*;
 
 fn window_conf() -> Conf {
@@ -72,7 +71,7 @@ async fn main() {
     rand::srand(macroquad::miniquad::date::now() as u64);
 
     let mut ctx = Ctx {
-        input: Input::default(),
+        input: input::Input::default(),
         font: art::load_font(),
         sfx: sfx::Sfx::load().await,
         voice: voice::Voice::new(),
@@ -81,6 +80,9 @@ async fn main() {
         star_pop: 0.0,
         time: 0.0,
         dt: 0.0,
+        muted: false,
+        button_pop: [0.0; 3],
+        last_mute_toggle: -1.0,
     };
 
     // Same order as the menu tiles.
@@ -93,6 +95,7 @@ async fn main() {
     let mut menu = menu::Menu::new();
     let mut screen = Screen::Menu;
     let mut star_panel = stars::StarPanel::default();
+    let mut taps = input::TapFilter::default();
 
     ctx.voice.say("Hi Sebastian! Pick a game!");
     // Get common phrases ready in the background so they play instantly later.
@@ -152,28 +155,31 @@ async fn main() {
 
         ctx.dt = get_frame_time().min(0.05);
         ctx.time += ctx.dt;
-        ctx.input = Input::read();
+        ctx.input = taps.read();
         if ctx.input.pressed {
             let (mx, my) = mouse_position();
             log::line(&format!(
-                "tap at {:?} (macroquad says {mx:.0},{my:.0}; screen {}x{}, dpi {}; {}; touches {}) on {screen:?}; sound button {:?}",
+                "tap at {:?} (macroquad says {mx:.0},{my:.0}; screen {}x{}, dpi {}; {}; touches {}) on {screen:?}",
                 ctx.input.pos,
                 screen_width(),
                 screen_height(),
                 screen_dpi_scale(),
                 input::debug_pointer(),
                 touches().len(),
-                hud::repeat_rect()
             ));
         }
         ctx.star_pop = (ctx.star_pop - ctx.dt * 2.0).max(0.0);
+        games::fade(&mut ctx.button_pop, ctx.dt, 3.0);
         ctx.confetti.update(ctx.dt);
         ctx.voice.update().await;
 
         // ----- update -----
         // The star panel (tap the star counter) sits on top of everything while it's open.
-        let panel_open = star_panel.update(&mut ctx);
-        if !panel_open {
+        // The speaker button (sound on/off) works on every screen.
+        if ctx.input.tapped(hud::mute_rect()) {
+            ctx.button_pop[hud::MUTE] = 1.0;
+            ctx.toggle_mute();
+        } else if !star_panel.update(&mut ctx) {
             update_screen(&mut screen, &mut games, &mut menu, &mut ctx);
         }
 
@@ -183,7 +189,7 @@ async fn main() {
             Screen::Menu => menu.draw(&ctx),
             Screen::Levels(i) => {
                 levels::draw(games[i].as_ref(), menu::LABELS[i], &ctx);
-                hud::draw_home_button();
+                hud::draw_home_button(&ctx);
             }
             Screen::Playing(i) => {
                 games[i].draw(&ctx);
@@ -192,6 +198,7 @@ async fn main() {
             }
         }
         hud::draw_stars(&ctx);
+        hud::draw_mute_button(&ctx);
         ctx.confetti.draw();
         star_panel.draw(&ctx);
 
@@ -214,6 +221,7 @@ fn update_screen(screen: &mut Screen, games: &mut [Box<dyn MiniGame>], menu: &mu
         }
         Screen::Levels(i) => {
             if ctx.input.tapped(hud::home_rect()) {
+                ctx.button_pop[hud::HOME] = 1.0;
                 ctx.sfx.pop();
                 ctx.voice.say("Pick a game!");
                 *screen = Screen::Menu;
@@ -240,10 +248,12 @@ fn update_screen(screen: &mut Screen, games: &mut [Box<dyn MiniGame>], menu: &mu
                 game.progress_mut().set_level(level.max(1) as u32);
                 game.enter(ctx);
             } else if ctx.input.tapped(hud::home_rect()) {
+                ctx.button_pop[hud::HOME] = 1.0;
                 ctx.sfx.pop();
                 ctx.voice.say("Pick a game!");
                 *screen = Screen::Menu;
             } else if ctx.input.tapped(hud::repeat_rect()) {
+                ctx.button_pop[hud::REPEAT] = 1.0;
                 ctx.sfx.pop();
                 let prompt = game.prompt();
                 ctx.voice.say(&prompt);

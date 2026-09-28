@@ -12,7 +12,9 @@
 
 use super::{parse, Part};
 use crate::wav;
-use macroquad::audio::{load_sound_from_bytes, play_sound, stop_sound, PlaySoundParams, Sound};
+use macroquad::audio::{
+    load_sound_from_bytes, play_sound, set_sound_volume, stop_sound, PlaySoundParams, Sound,
+};
 use macroquad::time::get_time;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::io::{BufRead, BufReader, Write};
@@ -44,6 +46,8 @@ pub struct PiperVoice {
     queue: VecDeque<Job>,
     playing: Option<Sound>,
     playing_until: f64,
+    /// Muted clips still "play" (silently), so games keep waiting for the voice as usual.
+    muted: bool,
 }
 
 impl PiperVoice {
@@ -104,6 +108,7 @@ impl PiperVoice {
             queue: VecDeque::new(),
             playing: None,
             playing_until: 0.0,
+            muted: false,
         })
     }
 
@@ -117,6 +122,13 @@ impl PiperVoice {
             self.queue.clear();
         }
         self.queue.extend(parse(text).into_iter().map(job_for));
+    }
+
+    pub fn set_muted(&mut self, muted: bool) {
+        self.muted = muted;
+        if let Some(s) = &self.playing {
+            set_sound_volume(s, if muted { 0.0 } else { 1.0 });
+        }
     }
 
     pub fn busy(&self) -> bool {
@@ -167,7 +179,8 @@ impl PiperVoice {
                 }
                 if let Some((sound, secs)) = self.loaded.get(&next.name) {
                     crate::log::line(&format!("voice plays {} ({secs:.1}s)", next.name));
-                    play_sound(sound, PlaySoundParams { looped: false, volume: 1.0 });
+                    let volume = if self.muted { 0.0 } else { 1.0 };
+                    play_sound(sound, PlaySoundParams { looped: false, volume });
                     self.playing = Some(sound.clone());
                     self.playing_until = get_time() + *secs as f64;
                     self.queue.pop_front();

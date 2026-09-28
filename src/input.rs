@@ -43,6 +43,35 @@ impl Input {
     }
 }
 
+/// Windows sometimes reports one tap twice, a split second apart at the exact same spot.
+/// For most buttons that's harmless, but it would flip the speaker button off and straight
+/// back on. This filter drops a second tap that's too fast and too close to the last one.
+#[derive(Default)]
+pub struct TapFilter {
+    last: Option<(f64, Vec2)>,
+}
+
+impl TapFilter {
+    const MIN_GAP_SECS: f64 = 0.25;
+    const SAME_SPOT: f32 = 12.0;
+
+    pub fn read(&mut self) -> Input {
+        let mut input = Input::read();
+        if input.pressed {
+            let now = get_time();
+            if let Some((t, pos)) = self.last {
+                if now - t < Self::MIN_GAP_SECS && pos.distance(input.pos) < Self::SAME_SPOT {
+                    crate::log::line(&format!("ignored double tap at {:?}", input.pos));
+                    input.pressed = false;
+                    return input;
+                }
+            }
+            self.last = Some((now, input.pos));
+        }
+        input
+    }
+}
+
 /// Ask Windows directly where the pointer is, in game units.
 ///
 /// Why: when a finger taps the screen, Windows sends a "button down" without always

@@ -21,6 +21,8 @@ const fn note(at: f32, freq: f32, len: f32) -> Note {
 }
 
 pub struct Sfx {
+    /// When true, no sound effects play.
+    pub muted: bool,
     pop: Option<Sound>,
     ding: Option<Sound>,
     oops: Option<Sound>,
@@ -31,6 +33,7 @@ impl Sfx {
     pub async fn load() -> Self {
         // Note frequencies: C5=523, E5=659, G5=784, C6=1047, E6=1319, G6=1568
         Sfx {
+            muted: false,
             pop: make(&[Note { at: 0.0, f0: 500.0, f1: 1100.0, len: 0.09, vol: 0.5 }]).await,
             ding: make(&[note(0.0, 1047.0, 0.3), note(0.08, 1319.0, 0.3), note(0.16, 1568.0, 0.45)]).await,
             oops: make(&[note(0.0, 392.0, 0.18), note(0.16, 330.0, 0.28)]).await,
@@ -45,27 +48,27 @@ impl Sfx {
     }
 
     pub fn pop(&self) {
-        play(&self.pop, 0.5);
+        self.play(&self.pop, 0.5);
     }
     pub fn ding(&self) {
-        play(&self.ding, 0.5);
+        self.play(&self.ding, 0.5);
     }
     pub fn oops(&self) {
-        play(&self.oops, 0.4);
+        self.play(&self.oops, 0.4);
     }
     pub fn tada(&self) {
-        play(&self.tada, 0.6);
+        self.play(&self.tada, 0.6);
+    }
+
+    fn play(&self, sound: &Option<Sound>, volume: f32) {
+        if let (Some(s), false) = (sound, self.muted) {
+            play_sound(s, PlaySoundParams { looped: false, volume });
+        }
     }
 }
 
 async fn make(notes: &[Note]) -> Option<Sound> {
     load_sound_from_bytes(&wav(notes)).await.ok()
-}
-
-fn play(sound: &Option<Sound>, volume: f32) {
-    if let Some(s) = sound {
-        play_sound(s, PlaySoundParams { looped: false, volume });
-    }
 }
 
 /// Render notes into a 16-bit mono WAV file (as bytes).
