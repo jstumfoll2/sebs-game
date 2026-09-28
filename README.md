@@ -82,7 +82,9 @@ To remove a player, tap **Edit** (bottom-right of "Who's playing?"), then the re
 - `--players test.json` uses a different players file (so testing doesn't touch the real one).
 - `--snapshot out.png` saves a screenshot after 2.5 s (`--snapshot-after 5` to change) and quits.
 - `cargo test` runs the unit tests.
-- Every run writes `sebastians-game.log` (taps and what the voice does); `--no-log` turns it off.
+- Every run writes `sebastians-game.log` (taps, the voice, crashes, and freezes with where they
+  happened); the run before is kept as `sebastians-game.prev.log`. `--no-log` turns it off.
+- `--fake-paint` makes the Drawing game paint by itself (a stress test).
 
 ## Code tour (for learning Rust)
 

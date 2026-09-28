@@ -319,6 +319,7 @@ impl App {
 
 #[macroquad::main(window_conf)]
 async fn main() {
+    log::start();
     rand::srand(macroquad::miniquad::date::now() as u64);
 
     let mut ctx = Ctx {
@@ -461,6 +462,7 @@ async fn main() {
 
         ctx.dt = get_frame_time().min(0.05);
         ctx.time += ctx.dt;
+        log::step("reading taps");
         ctx.input = taps.read();
         if ctx.input.pressed {
             let (mx, my) = mouse_position();
@@ -478,14 +480,19 @@ async fn main() {
         ctx.star_pop = (ctx.star_pop - ctx.dt * 2.0).max(0.0);
         games::fade(&mut ctx.button_pop, ctx.dt, 3.0);
         ctx.confetti.update(ctx.dt);
+        log::step("voice");
         ctx.voice.update().await;
 
+        log::step("game logic");
         app.update(&mut ctx);
+        log::step("drawing");
         app.draw(&ctx);
 
         if snapshot_done(ctx.time) {
             break;
         }
+        log::step("showing the frame");
         next_frame().await;
+        log::frame_done();
     }
 }

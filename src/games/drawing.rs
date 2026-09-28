@@ -283,6 +283,16 @@ impl MiniGame for Drawing {
         }
 
         // Painting: a line from last frame's spot to this one, so fast strokes stay smooth.
+        let mut input = input;
+        if std::env::args().any(|a| a == "--fake-paint") {
+            // Developer stress test: paint circles by itself.
+            let t = ctx.time;
+            input.down = true;
+            input.pos = area.center() + vec2(t.cos() * area.w * 0.3, (t * 1.3).sin() * area.h * 0.3);
+            if (t * 10.0) as i32 % 50 == 0 {
+                crate::log::line(&format!("fps {}", get_fps()));
+            }
+        }
         let Some(canvas) = &self.canvas else { return };
         if input.down && area.contains(input.pos) {
             let (cw, ch) = (canvas.texture.width(), canvas.texture.height());
