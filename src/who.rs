@@ -4,6 +4,7 @@ use crate::alphabet;
 use crate::art::{self, Paint};
 use crate::ctx::Ctx;
 use crate::hud;
+use crate::keyboard::{Key, Keyboard};
 use crate::players::{tidy_name, Players, MAX_NAME};
 use macroquad::prelude::*;
 
@@ -238,26 +239,21 @@ pub fn draw_star_choice(name: &str, stars: u32, ctx: &Ctx) {
 
 // ---------- typing a new name ----------
 
-const KEY_ROWS: [&str; 3] = ["QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"];
-
-#[derive(Clone, Copy, PartialEq)]
-enum Key {
-    Letter(char),
-    Back,
-    Done,
-}
-
 pub enum Typed {
     Nothing,
     Done(String),
     Cancel,
 }
 
-#[derive(Default)]
 pub struct NameEntry {
     text: String,
-    /// Keys flash when tapped.
-    flash: Option<(Key, f32)>,
+    keyboard: Keyboard,
+}
+
+impl Default for NameEntry {
+    fn default() -> Self {
+        NameEntry { text: String::new(), keyboard: Keyboard::new(0.42, "Done") }
+    }
 }
 
 impl NameEntry {
@@ -266,88 +262,33 @@ impl NameEntry {
         ctx.voice.say("Hi there! What's your name? Ask a grown-up to help type it.");
     }
 
-    fn keys() -> Vec<(Key, Rect)> {
-        let (w, h) = (screen_width(), screen_height());
-        let k = (w * 0.86 / 10.0).min(h * 0.11);
-        let gap = k * 0.1;
-        let mut keys = Vec::new();
-        for (row, letters) in KEY_ROWS.iter().enumerate() {
-            let count = letters.len() as f32 + if row == 2 { 1.6 } else { 0.0 };
-            let x0 = (w - count * k) / 2.0;
-            let y = h * 0.42 + row as f32 * k;
-            for (col, c) in letters.chars().enumerate() {
-                keys.push((Key::Letter(c), Rect::new(x0 + col as f32 * k + gap / 2.0, y, k - gap, k - gap)));
-            }
-            if row == 2 {
-                let x = x0 + letters.len() as f32 * k + gap / 2.0;
-                keys.push((Key::Back, Rect::new(x, y, k * 1.6 - gap, k - gap)));
-            }
+    /// `can_cancel`: show the home button (there are other players to go back to).
+    pub fn update(&mut self, ctx: &mut Ctx, can_cancel: bool) -> Typed {
+        if can_cancel && ctx.input.tapped(hud::home_rect()) {
+            return Typed::Cancel;
         }
-        let done_w = k * 3.5;
-        keys.push((Key::Done, Rect::new((w - done_w) / 2.0, h * 0.42 + 3.0 * k + gap * 2.0, done_w, k * 0.95)));
-        keys
-    }
-
-    fn press(&mut self, key: Key, ctx: &mut Ctx) -> Typed {
-        self.flash = Some((key, 1.0));
-        match key {
-            Key::Letter(c) => {
-                if self.text.chars().count() < MAX_NAME {
-                    self.text.push(c.to_ascii_lowercase());
-                    ctx.sfx.pop();
-                    if let Some(l) = alphabet::get(c) {
-                        ctx.voice.say(l.name);
-                    }
+        let room = self.text.chars().count() < MAX_NAME;
+        match self.keyboard.update(ctx) {
+            Some(Key::Letter(c)) if room => {
+                self.text.push(c.to_ascii_lowercase());
+                ctx.sfx.pop();
+                if let Some(l) = alphabet::get(c) {
+                    ctx.voice.say(l.name);
                 }
             }
-            Key::Back => {
+            Some(Key::Other(c)) if room => self.text.push(c),
+            Some(Key::Back) => {
                 self.text.pop();
                 ctx.sfx.pop();
             }
-            Key::Done => {
+            Some(Key::Done) => {
                 let name = tidy_name(&self.text);
                 if !name.is_empty() {
                     return Typed::Done(name);
                 }
                 ctx.voice.say("Type a name first!");
             }
-        }
-        Typed::Nothing
-    }
-
-    /// `can_cancel`: show the home button (there are other players to go back to).
-    pub fn update(&mut self, ctx: &mut Ctx, can_cancel: bool) -> Typed {
-        if let Some((_, t)) = &mut self.flash {
-            *t -= ctx.dt * 4.0;
-            if *t <= 0.0 {
-                self.flash = None;
-            }
-        }
-        if can_cancel && ctx.input.tapped(hud::home_rect()) {
-            return Typed::Cancel;
-        }
-
-        // The laptop's keyboard works too.
-        while let Some(c) = get_char_pressed() {
-            if c.is_ascii_alphabetic() {
-                if let Typed::Done(n) = self.press(Key::Letter(c.to_ascii_uppercase()), ctx) {
-                    return Typed::Done(n);
-                }
-            } else if (c == ' ' || c == '-' || c == '\'') && self.text.chars().count() < MAX_NAME {
-                self.text.push(c);
-            }
-        }
-        if is_key_pressed(KeyCode::Backspace) {
-            self.press(Key::Back, ctx);
-        }
-        if is_key_pressed(KeyCode::Enter) || is_key_pressed(KeyCode::KpEnter) {
-            return self.press(Key::Done, ctx);
-        }
-
-        if ctx.input.pressed {
-            if let Some((key, _)) = Self::keys().into_iter().find(|(_, r)| r.contains(ctx.input.pos)) {
-                return self.press(key, ctx);
-            }
+            _ => {}
         }
         Typed::Nothing
     }
@@ -375,39 +316,9 @@ impl NameEntry {
             draw_rectangle(x + size * 0.05, box_r.center().y - size * 0.4, size * 0.06, size * 0.8, art::INK);
         }
 
-        for (key, r) in Self::keys() {
-            let flash = match self.flash {
-                Some((k, t)) if k == key => t,
-                _ => 0.0,
-            };
-            let r = art::scale_rect(r, 1.0 - 0.1 * flash);
-            match key {
-                Key::Letter(c) => {
-                    art::card(r, WHITE);
-                    art::text_center(font, &c.to_string(), r.center(), r.h * 0.6, art::INK);
-                }
-                Key::Back => {
-                    art::card(r, Color::from_rgba(255, 228, 228, 255));
-                    backspace_icon(r.center(), r.h * 0.3);
-                }
-                Key::Done => {
-                    let ready = !tidy_name(&self.text).is_empty();
-                    let fill = if ready { Paint::Green.color() } else { art::SHADOW };
-                    art::card(r, fill);
-                    art::text_center(font, "Done", r.center(), r.h * 0.55, WHITE);
-                }
-            }
-        }
-
+        self.keyboard.draw(ctx, !tidy_name(&self.text).is_empty());
         if can_cancel {
             hud::draw_home_button(ctx);
         }
     }
-}
-
-/// A "delete" arrow pointing left.
-fn backspace_icon(c: Vec2, s: f32) {
-    let red = Paint::Red.color();
-    draw_triangle(vec2(c.x - s * 1.2, c.y), vec2(c.x - s * 0.4, c.y - s * 0.7), vec2(c.x - s * 0.4, c.y + s * 0.7), red);
-    draw_rectangle(c.x - s * 0.45, c.y - s * 0.3, s * 1.5, s * 0.6, red);
 }

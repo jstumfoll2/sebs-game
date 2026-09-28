@@ -13,13 +13,15 @@ fn title(name: &str) -> String {
         format!("{name}'s Game")
     }
 }
-pub const LABELS: [&str; 7] = ["Colors", "Patterns", "Shadows", "Puzzles", "Letters", "Counting", "Groups"];
-const TILE_COLORS: [(u8, u8, u8); 7] = [
+pub const LABELS: [&str; 8] =
+    ["Colors", "Patterns", "Shadows", "Puzzles", "Letters", "Spelling", "Counting", "Groups"];
+const TILE_COLORS: [(u8, u8, u8); 8] = [
     (255, 228, 236),
     (232, 224, 255),
     (230, 230, 240),
     (255, 243, 205),
     (220, 245, 228),
+    (236, 246, 214),
     (255, 236, 214),
     (222, 238, 255),
 ];
@@ -101,7 +103,13 @@ pub fn tiles() -> Vec<Rect> {
     let (w, h) = (screen_width(), screen_height());
     let area = Rect::new(w * 0.05, h * 0.27, w * 0.9, h * 0.68);
     let n = LABELS.len();
-    let cols = if n > 6 { 4 } else { 3 };
+    let cols = if n > 8 {
+        5
+    } else if n > 6 {
+        4
+    } else {
+        3
+    };
     let rows = n.div_ceil(cols);
     let gap = area.h * 0.05;
     let tw = (area.w - gap * (cols - 1) as f32) / cols as f32;
@@ -198,6 +206,15 @@ fn draw_tile_icon(i: usize, r: Rect, ctx: &Ctx) {
             }
         }
         5 => {
+            // C A T in letter boxes.
+            for (k, (letter, p)) in [("C", Paint::Red), ("A", Paint::Blue), ("T", Paint::Green)].iter().enumerate() {
+                let x = c.x + (k as f32 - 1.0) * spread;
+                let bx = Rect::new(x - s * 1.05, c.y - s * 1.05, s * 2.1, s * 2.1);
+                art::card(bx, WHITE);
+                art::text_center(font, letter, bx.center(), s * 1.6, p.color());
+            }
+        }
+        6 => {
             for k in 0..3 {
                 let x = c.x + (k as f32 - 1.0) * spread;
                 art::draw_thing(Thing::Apple, vec2(x, c.y), s * 0.9, Paint::Red.color());

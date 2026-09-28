@@ -9,6 +9,7 @@ mod fx;
 mod games;
 mod hud;
 mod input;
+mod keyboard;
 mod levels;
 mod log;
 mod menu;
@@ -24,7 +25,7 @@ mod who;
 use ctx::Ctx;
 use games::{
     color_sort::ColorSort, counting::Counting, groups::Groups, letters::Letters, pattern::Pattern,
-    puzzle::Puzzle, shadows::Shadows, MiniGame,
+    puzzle::Puzzle, shadows::Shadows, spelling::Spelling, MiniGame,
 };
 use macroquad::prelude::*;
 
@@ -338,6 +339,7 @@ async fn main() {
             Box::new(Shadows::new()),
             Box::new(Puzzle::new()),
             Box::new(Letters::new()),
+            Box::new(Spelling::new()),
             Box::new(Counting::new()),
             Box::new(Groups::new()),
         ],
