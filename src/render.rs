@@ -48,6 +48,45 @@ pub fn picture_texture_ex(pic: Picture, px: u32, backdrop: bool) -> RenderTarget
     target
 }
 
+/// Draw anything into a square see-through image: `draw` gets the center and a size.
+/// (Used for coloring-page outlines of shapes and pictures.)
+pub fn shape_texture(px: u32, draw: impl Fn(Vec2, f32)) -> RenderTarget {
+    let target = render_target(px, px);
+    target.texture.set_filter(FilterMode::Linear);
+    let size = px as f32;
+    let mut camera = Camera2D::from_display_rect(Rect::new(0.0, 0.0, size, size));
+    camera.render_target = Some(target.clone());
+    set_camera(&camera);
+    clear_background(Color::new(1.0, 1.0, 1.0, 0.0));
+    draw(vec2(size / 2.0, size / 2.0), size * 0.44);
+    set_default_camera();
+    target
+}
+
+/// A blank white canvas image to paint on, `w` x `h` pixels.
+pub fn canvas(w: u32, h: u32) -> RenderTarget {
+    let target = render_target(w.max(1), h.max(1));
+    target.texture.set_filter(FilterMode::Linear);
+    clear_canvas(&target);
+    target
+}
+
+/// Wipe a canvas back to white.
+pub fn clear_canvas(target: &RenderTarget) {
+    with_canvas(target, || clear_background(WHITE));
+}
+
+/// Run some drawing code that paints onto `target` instead of the screen.
+/// Coordinates are the canvas's own pixels (0,0 is its top-left corner).
+pub fn with_canvas(target: &RenderTarget, draw: impl FnOnce()) {
+    let (w, h) = (target.texture.width(), target.texture.height());
+    let mut camera = Camera2D::from_display_rect(Rect::new(0.0, 0.0, w, h));
+    camera.render_target = Some(target.clone());
+    set_camera(&camera);
+    draw();
+    set_default_camera();
+}
+
 /// Draw (part of) a texture made by `picture_texture` into `dest`.
 /// `source` is the part to draw, in 0..1 units (the whole image is 0,0 to 1,1).
 pub fn draw_picture(tex: &Texture2D, dest: Rect, source: Rect, tint: Color) {
@@ -114,9 +153,61 @@ void main() {
     .ok()
 }
 
-/// Draw a picture texture as a solid shadow.
-pub fn draw_shadow(material: &Material, tex: &Texture2D, dest: Rect, color: Color) {
+/// Draw a picture texture with a special material (a shadow, or an outline).
+pub fn draw_with_material(material: &Material, tex: &Texture2D, dest: Rect, color: Color) {
     gl_use_material(material);
     draw_picture(tex, dest, Rect::new(0.0, 0.0, 1.0, 1.0), color);
     gl_use_default_material();
+}
+
+/// A shader that draws just the *outline* of a picture's shape: a pixel is part of the line
+/// if the shape is solid there but some nearby pixel is empty. Turns any picture into a
+/// coloring-page outline. (Made for 512-pixel images: `STEP` is about 3 pixels.)
+pub fn outline_material() -> Option<Material> {
+    const VERTEX: &str = r#"#version 100
+attribute vec3 position;
+attribute vec2 texcoord;
+attribute vec4 color0;
+varying lowp vec2 uv;
+varying lowp vec4 color;
+uniform mat4 Model;
+uniform mat4 Projection;
+void main() {
+    gl_Position = Projection * Model * vec4(position, 1);
+    color = color0 / 255.0;
+    uv = texcoord;
+}
+"#;
+    const FRAGMENT: &str = r#"#version 100
+precision mediump float;
+varying lowp vec2 uv;
+varying lowp vec4 color;
+uniform sampler2D Texture;
+const float STEP = 3.5 / 512.0;
+float solid(vec2 p) { return step(0.5, texture2D(Texture, p).a); }
+void main() {
+    float here = solid(uv);
+    float least = 1.0;
+    for (int i = 0; i < 8; i++) {
+        float a = float(i) * 0.785398;
+        least = min(least, solid(uv + vec2(cos(a), sin(a)) * STEP));
+    }
+    // On the edge: solid here, but something nearby is empty (or we're at the very border).
+    float edge = here * (1.0 - least);
+    gl_FragColor = vec4(color.rgb, edge * color.a);
+}
+"#;
+    let blend = BlendState::new(
+        Equation::Add,
+        BlendFactor::Value(BlendValue::SourceAlpha),
+        BlendFactor::OneMinusValue(BlendValue::SourceAlpha),
+    );
+    load_material(
+        ShaderSource::Glsl { vertex: VERTEX, fragment: FRAGMENT },
+        MaterialParams {
+            pipeline_params: PipelineParams { color_blend: Some(blend), ..Default::default() },
+            ..Default::default()
+        },
+    )
+    .ok()
 }

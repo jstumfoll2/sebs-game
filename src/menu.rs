@@ -13,9 +13,10 @@ fn title(name: &str) -> String {
         format!("{name}'s Game")
     }
 }
-pub const LABELS: [&str; 8] =
-    ["Colors", "Patterns", "Shadows", "Puzzles", "Letters", "Spelling", "Counting", "Groups"];
-const TILE_COLORS: [(u8, u8, u8); 8] = [
+pub const LABELS: [&str; 9] = [
+    "Colors", "Patterns", "Shadows", "Puzzles", "Letters", "Spelling", "Counting", "Groups", "Drawing",
+];
+const TILE_COLORS: [(u8, u8, u8); 9] = [
     (255, 228, 236),
     (232, 224, 255),
     (230, 230, 240),
@@ -24,6 +25,7 @@ const TILE_COLORS: [(u8, u8, u8); 8] = [
     (236, 246, 214),
     (255, 236, 214),
     (222, 238, 255),
+    (250, 230, 255),
 ];
 
 pub struct Menu {
@@ -221,7 +223,7 @@ fn draw_tile_icon(i: usize, r: Rect, ctx: &Ctx) {
                 art::badge(font, vec2(x + s * 0.75, c.y - s * 0.75), s * 0.32, &(k + 1).to_string());
             }
         }
-        _ => {
+        7 => {
             // Two plates of two apples: "2, 4".
             for k in 0..2 {
                 let px = c.x + (k as f32 - 0.5) * spread * 1.4;
@@ -232,6 +234,19 @@ fn draw_tile_icon(i: usize, r: Rect, ctx: &Ctx) {
                     art::draw_thing(Thing::Apple, vec2(ax, c.y), s * 0.55, Paint::Red.color());
                 }
                 art::badge(font, vec2(plate.x + plate.w, plate.y), s * 0.36, &((k + 1) * 2).to_string());
+            }
+        }
+        _ => {
+            // A painter's palette with a rainbow brush stroke.
+            let pal = c + vec2(-spread * 0.45, 0.0);
+            draw_ellipse(pal.x, pal.y, s * 1.6, s * 1.15, 0.0, Color::from_rgba(214, 170, 120, 255));
+            for (k, p) in [Paint::Red, Paint::Yellow, Paint::Green, Paint::Blue].iter().enumerate() {
+                let a = -2.4 + k as f32 * 0.8;
+                draw_circle(pal.x + a.cos() * s * 1.05, pal.y + a.sin() * s * 0.7, s * 0.28, p.color());
+            }
+            for (k, p) in [Paint::Red, Paint::Orange, Paint::Yellow, Paint::Green, Paint::Blue].iter().enumerate() {
+                let r = s * (1.4 - k as f32 * 0.15);
+                art::arc(c + vec2(spread * 0.75, s * 0.9), r, 1.1 * std::f32::consts::PI, 1.9 * std::f32::consts::PI, s * 0.16, p.color());
             }
         }
     }

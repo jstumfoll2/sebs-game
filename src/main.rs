@@ -24,7 +24,7 @@ mod who;
 
 use ctx::Ctx;
 use games::{
-    color_sort::ColorSort, counting::Counting, groups::Groups, letters::Letters, pattern::Pattern,
+    color_sort::ColorSort, counting::Counting, drawing::Drawing, groups::Groups, letters::Letters, pattern::Pattern,
     puzzle::Puzzle, shadows::Shadows, spelling::Spelling, MiniGame,
 };
 use macroquad::prelude::*;
@@ -229,8 +229,14 @@ impl App {
                     self.show_players(ctx);
                 } else if let Some(i) = self.menu.update(ctx) {
                     ctx.sfx.pop();
-                    ctx.voice.then("Pick a level!");
-                    self.screen = Screen::Levels(i);
+                    if self.games[i].progress().max == 1 {
+                        // Games with only one level (like Drawing) skip the level picker.
+                        self.games[i].enter(ctx);
+                        self.screen = Screen::Playing(i);
+                    } else {
+                        ctx.voice.then("Pick a level!");
+                        self.screen = Screen::Levels(i);
+                    }
                 }
             }
             Screen::Levels(i) => {
@@ -298,8 +304,8 @@ impl App {
             }
             Screen::Playing(i) => {
                 self.games[i].draw(ctx);
-                let level = self.games[i].progress().level;
-                hud::draw_game_buttons(ctx, level);
+                let p = self.games[i].progress();
+                hud::draw_game_buttons(ctx, (p.max > 1).then_some(p.level));
             }
         }
         if !self.picking_player() {
@@ -342,6 +348,7 @@ async fn main() {
             Box::new(Spelling::new()),
             Box::new(Counting::new()),
             Box::new(Groups::new()),
+            Box::new(Drawing::new()),
         ],
         menu: menu::Menu::new(),
         players: players::Players::load(),

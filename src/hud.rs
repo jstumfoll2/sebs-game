@@ -49,22 +49,25 @@ pub fn draw_players_button(ctx: &Ctx) {
     art::people_icon(c, r);
 }
 
-pub fn draw_game_buttons(ctx: &Ctx, level: u32) {
+/// `level` is shown small in the corner for grown-ups (None for games without levels).
+pub fn draw_game_buttons(ctx: &Ctx, level: Option<u32>) {
     draw_home_button(ctx);
 
     let (c, r) = button(repeat_rect(), ctx.button_pop[REPEAT]);
     art::question_bubble_icon(ctx.font(), c, r, art::Paint::Blue.color());
 
     // Small level readout for grown-ups (arrow keys change it).
-    let s = button_size();
-    art::text_left(
-        ctx.font(),
-        &format!("level {level}"),
-        s * 0.3,
-        screen_height() - s * 0.3,
-        s * 0.25,
-        art::SHADOW,
-    );
+    if let Some(level) = level {
+        let s = button_size();
+        art::text_left(
+            ctx.font(),
+            &format!("level {level}"),
+            s * 0.3,
+            screen_height() - s * 0.3,
+            s * 0.25,
+            art::SHADOW,
+        );
+    }
 }
 
 /// The speaker button shows on every screen.

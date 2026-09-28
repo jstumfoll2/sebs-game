@@ -26,9 +26,13 @@ Everything is drawn with code and all sound effects are synthesized. The voice i
 |------|-----------------|--------|
 | **Colors** | Drag the object into the matching bucket. Tapping a bucket says its color. | 2 → 6 colors |
 | **Patterns** | Red, blue, red, blue… drag what comes next into the "?". Tapping a choice says its name. | AB → ABC, AAB, ABB, AABB |
+| **Shadows** | Drag each colorful picture onto its dark shadow. | 2 → 5 shadows |
+| **Puzzles** | Drag picture pieces onto the board; they snap into place. Early levels show a faint guide. | 2 → 12 pieces |
 | **Letters** | A picture clue ("ball") and the letter's sound: "Find the letter bee! Buh, buh, ball!" Drag the letter onto the picture; tapping a letter or the picture says its name and sound. | 5 → 26 letters |
+| **Spelling** | A picture and its word ("Let's spell cat! C, A, T"); type it on the big keyboard. Each letter is said as it's typed; a wrong spelling is read back, then try again. "Say it" reads out whatever's typed. | 3, 4, 5, longer letters; with or without guide letters |
 | **Counting** | Tap each object to count it, then pick how many. Includes zero ("zero means none!"). | 0–3, 0–5, 4–7, 5–10, 7–10, 10–15, 11–20 |
 | **Groups** | Early multiplication: tap each plate to count by 2s, 3s, 5s or 10s ("two, four, six"), then pick how many altogether. | 2s, 2s+, 5s, 10s, 3s, mixed |
+| **Drawing** | Paint with your finger: 10 colors, small/medium/big/rainbow brushes, eraser. Pick a blank page or a shape or picture outline to color in. | (no levels or stars) |
 
 - In Colors, Patterns and Letters, **tapping** an answer just says its name; **dragging** it to
   the target answers. A cartoon hand shows how to drag when each game starts.
@@ -70,8 +74,10 @@ To remove a player, tap **Edit** (bottom-right of "Who's playing?"), then the re
 
 - `--gallery` shows all 26 alphabet pictures.
 - `--levels 0` opens game 0's level picker.
+- `--pick 0` picks player 0; `--edit-players` opens the remove-a-player mode.
+- `--things` shows every object and shape; `--solve` fills in the puzzle; `--page 8` opens a coloring page.
 - `--start 3:5` jumps straight into game 3 (Counting) at level 5. Games count from 0
-  (0 Colors, 1 Patterns, 2 Letters, 3 Counting, 4 Groups).
+  (0 Colors, 1 Patterns, 2 Shadows, 3 Puzzles, 4 Letters, 5 Spelling, 6 Counting, 7 Groups, 8 Drawing).
 - `--stars 12` starts with 12 stars; `--show-stars` opens the star panel.
 - `--players test.json` uses a different players file (so testing doesn't touch the real one).
 - `--snapshot out.png` saves a screenshot after 2.5 s (`--snapshot-after 5` to change) and quits.

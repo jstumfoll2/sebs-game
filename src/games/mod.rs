@@ -2,6 +2,7 @@
 
 pub mod color_sort;
 pub mod counting;
+pub mod drawing;
 pub mod groups;
 pub mod letters;
 pub mod pattern;

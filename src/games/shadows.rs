@@ -178,7 +178,7 @@ impl MiniGame for Shadows {
             if self.matched[i] {
                 render::draw_picture(&self.textures[i].texture, r, whole, WHITE);
             } else if let Some(m) = &self.material {
-                render::draw_shadow(m, &self.textures[i].texture, r, SHADOW_INK);
+                render::draw_with_material(m, &self.textures[i].texture, r, SHADOW_INK);
             }
         }
 
