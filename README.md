@@ -25,7 +25,7 @@ Everything is drawn with code and all sound effects are synthesized. The voice i
 | Game | What it teaches | Levels |
 |------|-----------------|--------|
 | **Colors** | Lots of objects in different colors: drag each one into the bucket with the same color. Tapping an object or bucket says its name. | 2 colors / 4 things → 6 colors / 8 things |
-| **Patterns** | Red, blue, red, blue… drag what comes next into the "?". Tapping a choice says its name. | AB → ABC, AAB, ABB, AABB |
+| **Patterns** | Find the missing piece and drag it into the "?". Rows (red, blue, red, blue…), big/small and turning arrows, a necklace of beads, a checkerboard grid, and growing patterns (1, 2, 3, 4…). Tapping any card says its name. | AB colors → ABC → big/small & arrows → necklace → grid → growing |
 | **Shadows** | Drag each colorful picture onto its dark shadow. | 2 → 5 shadows |
 | **Puzzles** | Drag picture pieces onto the board; they snap into place. Early levels show a faint guide. | 2 → 12 pieces |
 | **Letters** | A picture clue ("ball") and the letter's sound: "Find the letter bee! Buh, buh, ball!" Drag the letter onto the picture; tapping a letter or the picture says its name and sound. | 5 → 26 letters |
