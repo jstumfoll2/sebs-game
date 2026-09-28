@@ -52,6 +52,9 @@ pub fn picture_texture_ex(pic: Picture, px: u32, backdrop: bool) -> RenderTarget
 /// `source` is the part to draw, in 0..1 units (the whole image is 0,0 to 1,1).
 pub fn draw_picture(tex: &Texture2D, dest: Rect, source: Rect, tint: Color) {
     let (w, h) = (tex.width(), tex.height());
+    // Render-target images are stored upside down, so the top of the picture is at the
+    // bottom of the image: pick the part to draw from the flipped position.
+    let flipped_y = 1.0 - source.y - source.h;
     draw_texture_ex(
         tex,
         dest.x,
@@ -59,7 +62,7 @@ pub fn draw_picture(tex: &Texture2D, dest: Rect, source: Rect, tint: Color) {
         tint,
         DrawTextureParams {
             dest_size: Some(vec2(dest.w, dest.h)),
-            source: Some(Rect::new(source.x * w, source.y * h, source.w * w, source.h * h)),
+            source: Some(Rect::new(source.x * w, flipped_y * h, source.w * w, source.h * h)),
             // Images drawn with a camera come out upside down; flip them back.
             flip_y: true,
             ..Default::default()

@@ -167,6 +167,10 @@ impl MiniGame for Puzzle {
         if self.tex.is_none() {
             self.tex = Some(render::picture_texture_ex(self.letter.picture, 512, true));
         }
+        // Developer check: `--solve` puts every piece in its place (the picture should look right).
+        if std::env::args().any(|a| a == "--solve") {
+            self.placed.fill(true);
+        }
         fade(&mut self.wiggle, ctx.dt, 2.5);
         fade(&mut self.snap_pop, ctx.dt, 3.0);
         self.demo.update(ctx);
