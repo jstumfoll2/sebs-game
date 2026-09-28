@@ -28,6 +28,7 @@ Everything is drawn with code and all sound effects are synthesized. The voice i
 | **Patterns** | Red, blue, red, blue… drag what comes next into the "?". Tapping a choice says its name. | AB → ABC, AAB, ABB, AABB |
 | **Letters** | A picture clue ("ball") and the letter's sound: "Find the letter bee! Buh, buh, ball!" Drag the letter onto the picture; tapping a letter or the picture says its name and sound. | 5 → 26 letters |
 | **Counting** | Tap each object to count it, then pick how many. Includes zero ("zero means none!"). | 0–3, 0–5, 4–7, 5–10, 7–10, 10–15, 11–20 |
+| **Groups** | Early multiplication: tap each plate to count by 2s, 3s, 5s or 10s ("two, four, six"), then pick how many altogether. | 2s, 2s+, 5s, 10s, 3s, mixed |
 
 - In Colors, Patterns and Letters, **tapping** an answer just says its name; **dragging** it to
   the target answers. A cartoon hand shows how to drag when each game starts.
@@ -64,7 +65,8 @@ people button, top-left on the home screen). Each kid keeps their own stars and 
 ## Developer options
 
 - `--gallery` shows all 26 alphabet pictures.
-- `--start 3:5` jumps straight into game 3 (Counting) at level 5. Games count from 0.
+- `--start 3:5` jumps straight into game 3 (Counting) at level 5. Games count from 0
+  (0 Colors, 1 Patterns, 2 Letters, 3 Counting, 4 Groups).
 - `--stars 12` starts with 12 stars; `--show-stars` opens the star panel.
 - `--players test.json` uses a different players file (so testing doesn't touch the real one).
 - `--snapshot out.png` saves a screenshot after 2.5 s (`--snapshot-after 5` to change) and quits.

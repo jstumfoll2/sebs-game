@@ -22,7 +22,8 @@ mod who;
 
 use ctx::Ctx;
 use games::{
-    color_sort::ColorSort, counting::Counting, letters::Letters, pattern::Pattern, MiniGame,
+    color_sort::ColorSort, counting::Counting, groups::Groups, letters::Letters, pattern::Pattern,
+    MiniGame,
 };
 use macroquad::prelude::*;
 
@@ -284,6 +285,7 @@ async fn main() {
             Box::new(Pattern::new()),
             Box::new(Letters::new()),
             Box::new(Counting::new()),
+            Box::new(Groups::new()),
         ],
         menu: menu::Menu::new(),
         players: players::Players::load(),

@@ -13,8 +13,14 @@ fn title(name: &str) -> String {
         format!("{name}'s Game")
     }
 }
-pub const LABELS: [&str; 4] = ["Colors", "Patterns", "Letters", "Counting"];
-const TILE_COLORS: [(u8, u8, u8); 4] = [(255, 228, 236), (232, 224, 255), (220, 245, 228), (255, 236, 214)];
+pub const LABELS: [&str; 5] = ["Colors", "Patterns", "Letters", "Counting", "Groups"];
+const TILE_COLORS: [(u8, u8, u8); 5] = [
+    (255, 228, 236),
+    (232, 224, 255),
+    (220, 245, 228),
+    (255, 236, 214),
+    (222, 238, 255),
+];
 
 pub struct Menu {
     /// Per-letter hop when a title letter is tapped.
@@ -88,18 +94,24 @@ impl Menu {
     }
 }
 
-/// Four big tiles in a 2x2 grid.
-pub fn tiles() -> [Rect; 4] {
+/// Big game tiles: three on top, the rest centered underneath.
+pub fn tiles() -> Vec<Rect> {
     let (w, h) = (screen_width(), screen_height());
-    let area = Rect::new(w * 0.08, h * 0.27, w * 0.84, h * 0.68);
-    let gap = area.h * 0.06;
-    let tw = (area.w - gap) / 2.0;
-    let th = (area.h - gap) / 2.0;
-    std::array::from_fn(|i| {
-        let col = (i % 2) as f32;
-        let row = (i / 2) as f32;
-        Rect::new(area.x + col * (tw + gap), area.y + row * (th + gap), tw, th)
-    })
+    let area = Rect::new(w * 0.05, h * 0.27, w * 0.9, h * 0.68);
+    let cols = 3;
+    let n = LABELS.len();
+    let rows = n.div_ceil(cols);
+    let gap = area.h * 0.05;
+    let tw = (area.w - gap * (cols - 1) as f32) / cols as f32;
+    let th = (area.h - gap * (rows - 1) as f32) / rows as f32;
+    (0..n)
+        .map(|i| {
+            let (col, row) = (i % cols, i / cols);
+            let in_row = (n - row * cols).min(cols);
+            let shift = (cols - in_row) as f32 * (tw + gap) / 2.0;
+            Rect::new(area.x + shift + col as f32 * (tw + gap), area.y + row as f32 * (th + gap), tw, th)
+        })
+        .collect()
 }
 
 /// Font size plus (letter, center, width) for each title character.
@@ -165,11 +177,24 @@ fn draw_tile_icon(i: usize, r: Rect, ctx: &Ctx) {
                 art::text_center(font, letter, vec2(x, c.y), s * 2.4, p.color());
             }
         }
-        _ => {
+        3 => {
             for k in 0..3 {
                 let x = c.x + (k as f32 - 1.0) * spread;
                 art::draw_thing(Thing::Apple, vec2(x, c.y), s * 0.9, Paint::Red.color());
                 art::badge(font, vec2(x + s * 0.75, c.y - s * 0.75), s * 0.32, &(k + 1).to_string());
+            }
+        }
+        _ => {
+            // Two plates of two apples: "2, 4".
+            for k in 0..2 {
+                let px = c.x + (k as f32 - 0.5) * spread * 1.4;
+                let plate = Rect::new(px - s * 1.5, c.y - s * 1.1, s * 3.0, s * 2.2);
+                art::card(plate, WHITE);
+                for a in 0..2 {
+                    let ax = px + (a as f32 - 0.5) * s * 1.3;
+                    art::draw_thing(Thing::Apple, vec2(ax, c.y), s * 0.55, Paint::Red.color());
+                }
+                art::badge(font, vec2(plate.x + plate.w, plate.y), s * 0.36, &((k + 1) * 2).to_string());
             }
         }
     }
