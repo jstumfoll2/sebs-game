@@ -24,7 +24,7 @@ Everything is drawn with code and all sound effects are synthesized. The voice i
 
 | Game | What it teaches | Levels |
 |------|-----------------|--------|
-| **Colors** | Drag the object into the matching bucket. Tapping a bucket says its color. | 2 → 6 colors |
+| **Colors** | Lots of objects in different colors: drag each one into the bucket with the same color. Tapping an object or bucket says its name. | 2 colors / 4 things → 6 colors / 8 things |
 | **Patterns** | Red, blue, red, blue… drag what comes next into the "?". Tapping a choice says its name. | AB → ABC, AAB, ABB, AABB |
 | **Shadows** | Drag each colorful picture onto its dark shadow. | 2 → 5 shadows |
 | **Puzzles** | Drag picture pieces onto the board; they snap into place. Early levels show a faint guide. | 2 → 12 pieces |
