@@ -1,5 +1,5 @@
 //! Find the letter: a picture clue appears ("ball"), the voice says the letter and its sound
-//! ("Find the letter bee! Buh, buh, ball!"), and Sebastian drags the matching letter onto
+//! ("Find the letter B! Buh, buh, ball!"), and Sebastian drags the matching letter onto
 //! the picture. Tapping a letter just says its name and sound.
 //! Starts with a handful of letters and slowly adds more.
 //!
@@ -116,7 +116,7 @@ impl MiniGame for Letters {
         let l = self.target();
         let s = l.sound();
         if l.letter == 'X' {
-            format!("Find the letter ex! {s}, like the end of box!")
+            format!("Find the letter X! {s}, like the end of box!")
         } else {
             format!("Find the letter {}! {s}, {s}, {}!", l.name, l.word)
         }

@@ -6,7 +6,8 @@ use crate::pictures::Picture;
 
 pub struct Letter {
     pub letter: char,
-    /// How to say the letter's *name* so the voice gets it right ("bee").
+    /// How the voice says the letter's *name*. Plain capitals ("B") are read right; "A" needs
+    /// its sound spelled out in IPA, or at the start of a sentence it's read as the word "a".
     pub name: &'static str,
     /// The letter's *sound* in IPA phonetic symbols ("bə"), for the Piper voice.
     pub ipa: &'static str,
@@ -45,32 +46,32 @@ macro_rules! letter {
 }
 
 pub const LETTERS: [Letter; 26] = [
-    letter!('A', "ay", "ˈæ", "ah", "apple", Apple),
-    letter!('B', "bee", "bə", "buh", "ball", Ball),
-    letter!('C', "see", "kə", "kuh", "cat", Cat),
-    letter!('D', "dee", "də", "duh", "dog", Dog),
-    letter!('E', "ee", "ˈɛ", "eh", "egg", Egg),
-    letter!('F', "eff", "fːː", "fff", "fish", Fish),
-    letter!('G', "gee", "ɡə", "guh", "grapes", Grapes),
-    letter!('H', "aitch", "hə", "huh", "heart", Heart),
-    letter!('I', "eye", "ˈɪ", "ih", "igloo", Igloo),
-    letter!('J', "jay", "dʒə", "juh", "jellyfish", Jellyfish),
-    letter!('K', "kay", "kə", "kuh", "kite", Kite),
-    letter!('L', "ell", "lːː", "lll", "lollipop", Lollipop),
-    letter!('M', "em", "mːː", "mmm", "moon", Moon),
-    letter!('N', "en", "nːː", "nnn", "nest", Nest),
-    letter!('O', "oh", "ˈɑ", "ah", "octopus", Octopus),
-    letter!('P', "pee", "pə", "puh", "pig", Pig),
-    letter!('Q', "cue", "kwə", "kwuh", "queen", Crown),
-    letter!('R', "ar", "ɹːː", "rrr", "rainbow", Rainbow),
-    letter!('S', "ess", "sːː", "sss", "sun", Sun),
-    letter!('T', "tee", "tə", "tuh", "tree", Tree),
-    letter!('U', "you", "ˈʌ", "uh", "umbrella", Umbrella),
-    letter!('V', "vee", "vːː", "vvv", "van", Van),
-    letter!('W', "double you", "wə", "wuh", "whale", Whale),
-    letter!('X', "ex", "ks", "ks", "box", Box),
-    letter!('Y', "why", "jə", "yuh", "yo-yo", YoYo),
-    letter!('Z', "zee", "zːː", "zzz", "zebra", Zebra),
+    letter!('A', "{ˈeɪ|A}", "ˈæ", "ah", "apple", Apple),
+    letter!('B', "B", "bə", "buh", "ball", Ball),
+    letter!('C', "C", "kə", "kuh", "cat", Cat),
+    letter!('D', "D", "də", "duh", "dog", Dog),
+    letter!('E', "E", "ˈɛ", "eh", "egg", Egg),
+    letter!('F', "F", "fːː", "fff", "fish", Fish),
+    letter!('G', "G", "ɡə", "guh", "grapes", Grapes),
+    letter!('H', "H", "hə", "huh", "heart", Heart),
+    letter!('I', "I", "ˈɪ", "ih", "igloo", Igloo),
+    letter!('J', "J", "dʒə", "juh", "jellyfish", Jellyfish),
+    letter!('K', "K", "kə", "kuh", "kite", Kite),
+    letter!('L', "L", "lːː", "lll", "lollipop", Lollipop),
+    letter!('M', "M", "mːː", "mmm", "moon", Moon),
+    letter!('N', "N", "nːː", "nnn", "nest", Nest),
+    letter!('O', "O", "ˈɑ", "ah", "octopus", Octopus),
+    letter!('P', "P", "pə", "puh", "pig", Pig),
+    letter!('Q', "Q", "kwə", "kwuh", "queen", Crown),
+    letter!('R', "R", "ɹːː", "rrr", "rainbow", Rainbow),
+    letter!('S', "S", "sːː", "sss", "sun", Sun),
+    letter!('T', "T", "tə", "tuh", "tree", Tree),
+    letter!('U', "U", "ˈʌ", "uh", "umbrella", Umbrella),
+    letter!('V', "V", "vːː", "vvv", "van", Van),
+    letter!('W', "W", "wə", "wuh", "whale", Whale),
+    letter!('X', "X", "ks", "ks", "box", Box),
+    letter!('Y', "Y", "jə", "yuh", "yo-yo", YoYo),
+    letter!('Z', "Z", "zːː", "zzz", "zebra", Zebra),
 ];
 
 /// Look up a letter (either case). Returns None for anything that isn't A-Z.
