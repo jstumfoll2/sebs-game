@@ -1,6 +1,6 @@
 //! Spelling: a picture and its word appear ("Let's spell cat! C, A, T."), and the player
 //! types it on the big keyboard. Each letter is said as it's typed. A wrong spelling is read
-//! back as typed ("That spells C-T-A"), then it's time to try again.
+//! back as the word it makes ("That says groo!"), then it's time to try again.
 
 use super::{celebration_over, MiniGame, Progress};
 use crate::alphabet::{self, capitalize};
@@ -117,12 +117,13 @@ impl Spelling {
             ctx.correct(Self::picture_rect().center(), &words, leveled);
             self.done = Some(1.2);
         } else {
-            // Read back what they typed, then show them the right way.
-            let typed_letters = spelled_out(&self.typed);
+            // Say the word they typed, as a word ("That says groo!"), then show the right way.
             let words = format!(
-                "That spells {typed_letters}. Let's try again! {} is spelled {}.",
+                "That says {}! Let's try again. {} is spelled {}. {}!",
+                self.typed,
                 capitalize(self.word),
-                spelled_out(self.word)
+                spelled_out(self.word),
+                capitalize(self.word)
             );
             ctx.wrong(&words);
             self.first_try = false;
@@ -196,7 +197,8 @@ impl MiniGame for Spelling {
                 if self.typed.is_empty() {
                     ctx.voice.say(&self.prompt());
                 } else {
-                    ctx.voice.say(&format!("{}. {}", spelled_out(&self.typed), self.typed));
+                    // Say it as a word, the way it sounds ("fis!"), not letter by letter.
+                    ctx.voice.say(&format!("{}!", self.typed));
                 }
             }
             _ => {}
