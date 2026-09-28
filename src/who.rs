@@ -21,7 +21,7 @@ fn player_cards(players: usize) -> Vec<Rect> {
     let n = players + 1;
     let cols = n.min(4);
     let rows = n.div_ceil(cols);
-    let cell = (w * 0.84 / cols as f32).min(h * 0.62 / rows as f32);
+    let cell = (w * 0.84 / cols as f32).min(h * 0.62 / rows as f32).min(h * 0.42);
     let size = cell * 0.86;
     let x0 = (w - cell * cols as f32) / 2.0;
     let y0 = h * 0.3;

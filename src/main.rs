@@ -323,11 +323,11 @@ async fn main() {
         }
     }
 
-    // Who's playing? New here: ask for a name. One player: go straight in. Several: ask.
-    match app.players.players.len() {
-        0 => app.new_name(&mut ctx),
-        1 => app.pick_player(0, &mut ctx),
-        _ => app.show_players(&mut ctx),
+    // Start on "Who's playing?" (or ask for a name if nobody has played yet).
+    if app.players.players.is_empty() {
+        app.new_name(&mut ctx);
+    } else {
+        app.show_players(&mut ctx);
     }
 
     // `--stars 7` starts with 7 stars; `--show-stars` opens the star panel right away.
