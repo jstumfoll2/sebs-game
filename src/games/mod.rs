@@ -20,9 +20,9 @@ pub trait MiniGame {
     fn draw(&self, ctx: &Ctx);
     fn progress(&self) -> &Progress;
     fn progress_mut(&mut self) -> &mut Progress;
-    /// What a level means, for the level picker: big text and a small caption,
-    /// e.g. ("5-10", "") for counting or ("3", "colors") for color sorting.
-    fn level_label(&self, level: u32) -> (String, String);
+    /// What a level means, shown under its number in the level picker,
+    /// e.g. "5-10" for counting or "3 colors" for color sorting.
+    fn level_label(&self, level: u32) -> String;
 }
 
 /// Right answers in a row (on the first try) needed to move up a level.

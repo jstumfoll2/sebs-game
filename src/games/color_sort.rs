@@ -204,8 +204,8 @@ impl MiniGame for ColorSort {
         &mut self.progress
     }
 
-    fn level_label(&self, level: u32) -> (String, String) {
-        ((level + 1).to_string(), "colors".to_string())
+    fn level_label(&self, level: u32) -> String {
+        format!("{} colors", level + 1)
     }
 }
 

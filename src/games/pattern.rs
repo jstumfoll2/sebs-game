@@ -315,13 +315,13 @@ impl MiniGame for Pattern {
         &mut self.progress
     }
 
-    fn level_label(&self, level: u32) -> (String, String) {
-        let (big, small) = match level {
-            1 => ("AB", "colors"),
-            2 => ("AB", "shapes"),
-            3 => ("ABC", "AAB"),
-            _ => ("AABB", "ABB"),
-        };
-        (big.to_string(), small.to_string())
+    fn level_label(&self, level: u32) -> String {
+        match level {
+            1 => "AB colors",
+            2 => "AB shapes",
+            3 => "ABC, AAB",
+            _ => "AABB, ABB",
+        }
+        .to_string()
     }
 }

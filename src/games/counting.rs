@@ -367,9 +367,9 @@ impl MiniGame for Counting {
         &mut self.progress
     }
 
-    fn level_label(&self, level: u32) -> (String, String) {
+    fn level_label(&self, level: u32) -> String {
         let (lo, hi) = RANGES[(level - 1) as usize];
-        (format!("{lo}-{hi}"), String::new())
+        format!("{lo}-{hi}")
     }
 }
 

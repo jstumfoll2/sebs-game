@@ -338,6 +338,11 @@ async fn main() {
         app.star_panel.open(&mut ctx);
     }
 
+    // `--levels 0` opens game 0's level picker.
+    if let Some(i) = arg_value("--levels").and_then(|s| s.parse::<usize>().ok()) {
+        app.screen = Screen::Levels(i.min(app.games.len() - 1));
+    }
+
     // `--start 2:3` jumps straight into game 2 (Letters) at level 3. Games count from 0.
     if let Some(start) = arg_value("--start") {
         let mut parts = start.split(':').map(|p| p.parse::<u32>().ok());

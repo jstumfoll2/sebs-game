@@ -46,11 +46,15 @@ pub fn draw(game: &dyn MiniGame, name: &str, ctx: &Ctx) {
             art::star(vec2(x, r.y + r.h * 0.16), star_r, art::GOLD);
         }
 
-        let (big, small) = game.level_label(level);
-        let big_size = (r.h * 0.36).min(r.w * 1.5 / big.len().max(1) as f32);
-        art::text_center(font, &big, vec2(r.center().x, r.y + r.h * 0.52), big_size, color);
-        if !small.is_empty() {
-            art::text_center(font, &small, vec2(r.center().x, r.y + r.h * 0.82), r.h * 0.13, art::INK);
+        // The level number, big, so it matches "Level 3!" and the corner readout...
+        art::text_center(font, &level.to_string(), vec2(r.center().x, r.y + r.h * 0.5), r.h * 0.4, color);
+        // ...and what the level means underneath ("3 colors", "5-10"), shrunk to fit.
+        let caption = game.level_label(level);
+        let mut size = r.h * 0.13;
+        let width = measure_text(&caption, font, size as u16, 1.0).width;
+        if width > r.w * 0.9 {
+            size *= r.w * 0.9 / width;
         }
+        art::text_center(font, &caption, vec2(r.center().x, r.y + r.h * 0.83), size, art::INK);
     }
 }

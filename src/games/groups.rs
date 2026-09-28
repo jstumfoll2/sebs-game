@@ -288,15 +288,13 @@ impl MiniGame for Groups {
         &mut self.progress
     }
 
-    fn level_label(&self, level: u32) -> (String, String) {
-        let (sizes, _, _) = LEVELS[(level - 1) as usize];
-        let big = if sizes.len() == 1 { format!("{}s", sizes[0]) } else { "Mix".to_string() };
-        let small = match level {
-            1 => "few",
-            2 => "more",
-            _ => "",
-        };
-        (big, small.to_string())
+    fn level_label(&self, level: u32) -> String {
+        let (sizes, lo, hi) = LEVELS[(level - 1) as usize];
+        if sizes.len() == 1 {
+            format!("{}s, {lo}-{hi} plates", sizes[0])
+        } else {
+            "mixed".to_string()
+        }
     }
 }
 

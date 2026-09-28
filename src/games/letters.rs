@@ -238,8 +238,7 @@ impl MiniGame for Letters {
         &mut self.progress
     }
 
-    fn level_label(&self, level: u32) -> (String, String) {
-        let size = POOL_SIZE[(level - 1) as usize];
-        (size.to_string(), "letters".to_string())
+    fn level_label(&self, level: u32) -> String {
+        format!("{} letters", POOL_SIZE[(level - 1) as usize])
     }
 }

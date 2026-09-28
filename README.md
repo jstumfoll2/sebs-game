@@ -65,6 +65,7 @@ people button, top-left on the home screen). Each kid keeps their own stars and 
 ## Developer options
 
 - `--gallery` shows all 26 alphabet pictures.
+- `--levels 0` opens game 0's level picker.
 - `--start 3:5` jumps straight into game 3 (Counting) at level 5. Games count from 0
   (0 Colors, 1 Patterns, 2 Letters, 3 Counting, 4 Groups).
 - `--stars 12` starts with 12 stars; `--show-stars` opens the star panel.
