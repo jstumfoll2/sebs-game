@@ -46,7 +46,11 @@ Everything is drawn with code and all sound effects are synthesized. The voice i
 The first time the game opens it asks for a name (a grown-up types it on the big on-screen
 keyboard or the laptop keyboard). Add more kids from the **"Who's playing?"** screen (the
 people button, top-left on the home screen). Each kid keeps their own stars and levels, saved in
-`%APPDATA%sebastians-gameplayers.json`. Edit or delete that file to rename or remove a player.
+`%APPDATA%\sebastians-game\players.json` (you can edit it by hand, e.g. to fix a name).
+
+To remove a player, tap **Edit** (bottom-right of "Who's playing?"), then the red X, then
+**Remove**. When a player with stars is picked, the game asks whether to **keep** their stars or
+**start at 0** (levels are kept either way).
 
 ## Grown-up controls
 
