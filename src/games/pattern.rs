@@ -40,6 +40,8 @@ pub struct Pattern {
     demo: Demo,
     /// The choice that was dropped in the slot (hidden from the row while celebrating).
     placed: Option<usize>,
+    /// Pattern cards hop when tapped.
+    hop: Vec<f32>,
 }
 
 /// After a right answer we "chant" the whole pattern, one item at a time,
@@ -74,6 +76,7 @@ impl Pattern {
             drag: CardDrag::default(),
             demo: Demo::default(),
             placed: None,
+            hop: Vec::new(),
         };
         game.new_round();
         game
@@ -132,6 +135,7 @@ impl Pattern {
         self.shake = vec![0.0; self.choices.len()];
         self.drag.reset();
         self.placed = None;
+        self.hop = vec![0.0; self.shown.len() + 1];
         self.phase = Phase::Playing;
     }
 
@@ -141,6 +145,11 @@ impl Pattern {
             Vary::Shape => item.0.name().to_string(),
             Vary::Both => format!("{} {}", item.1.name(), item.0.name()),
         }
+    }
+
+    /// The full name of an item, for when it's tapped: "red star".
+    fn full_name(item: Item) -> String {
+        format!("{} {}", item.1.name(), item.0.name())
     }
 
     /// Item `i` of the finished pattern (the last one is the answer).
@@ -202,6 +211,7 @@ impl MiniGame for Pattern {
 
     fn update(&mut self, ctx: &mut Ctx) {
         fade(&mut self.shake, ctx.dt, 2.5);
+        fade(&mut self.hop, ctx.dt, 3.0);
         self.demo.update(ctx);
         match self.phase {
             Phase::Celebrating(_) if !self.chant.done => self.update_chant(ctx),
@@ -215,12 +225,25 @@ impl MiniGame for Pattern {
                 }
             }
             Phase::Playing => {
+                // Tapping a card in the pattern says what it is; tapping the "?" asks the question.
+                if self.drag.held().is_none() {
+                    let slots = self.slot_rects();
+                    if let Some(i) = slots.iter().position(|r| ctx.input.tapped(*r)) {
+                        ctx.sfx.pop();
+                        self.hop[i] = 1.0;
+                        match self.shown.get(i) {
+                            Some(item) => ctx.voice.say(&Self::full_name(*item)),
+                            None => ctx.voice.say(&self.prompt()),
+                        }
+                        return;
+                    }
+                }
                 let rects = self.choice_rects();
                 match self.drag.update(&ctx.input, &rects, ctx.dt) {
                     DragEvent::PickedUp(i) => {
                         // Touching a choice says what it is.
                         ctx.sfx.pop();
-                        ctx.voice.say(&self.word(self.choices[i]));
+                        ctx.voice.say(&Self::full_name(self.choices[i]));
                     }
                     DragEvent::Dropped(i, at) => {
                         // Only a choice dropped on the "?" counts as an answer.
@@ -258,6 +281,7 @@ impl MiniGame for Pattern {
             let mut r = *r;
             if playing {
                 r.y -= (ctx.time * 4.0 - i as f32 * 0.8).sin().max(0.0) * r.h * 0.06;
+                r.y -= (self.hop[i] * std::f32::consts::PI).sin() * r.h * 0.15;
             } else if self.chant.lit == Some(i) {
                 r = art::scale_rect(r, 1.15);
                 r.y -= r.h * 0.08;
@@ -271,6 +295,7 @@ impl MiniGame for Pattern {
         let mut q = *slots.last().unwrap();
         if playing {
             q = art::scale_rect(q, 1.0 + 0.05 * (ctx.time * 5.0).sin());
+            q.y -= (self.hop.last().copied().unwrap_or(0.0) * std::f32::consts::PI).sin() * q.h * 0.15;
             art::card(q, Color::from_rgba(255, 244, 200, 255));
             art::text_center(font, "?", q.center(), q.h * 0.7, art::INK);
         } else {
