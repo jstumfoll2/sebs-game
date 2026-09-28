@@ -494,6 +494,23 @@ pub fn hand(tip: Vec2, s: f32, pressing: bool) {
     rounded_rect(Rect::new(t.x - 0.08 * s, t.y + 0.05 * s, 0.16 * s, 0.14 * s), 0.05 * s, Color::from_rgba(255, 235, 220, 255));
 }
 
+/// Two little people: "who's playing?"
+pub fn people_icon(c: Vec2, r: f32) {
+    for (dx, dy, s, paint) in [(0.25, 0.05, 0.85, Paint::Green), (-0.18, -0.02, 1.0, Paint::Blue)] {
+        let p = c + vec2(dx * r, dy * r);
+        let color = paint.color();
+        draw_circle(p.x, p.y - 0.25 * r * s, 0.17 * r * s, color);
+        // Shoulders: the top half of a circle.
+        let base = p + vec2(0.0, 0.35 * r * s);
+        let rad = 0.3 * r * s;
+        for i in 0..16 {
+            let a0 = PI + PI * i as f32 / 16.0;
+            let a1 = PI + PI * (i + 1) as f32 / 16.0;
+            draw_triangle(base, base + vec2(a0.cos(), a0.sin()) * rad, base + vec2(a1.cos(), a1.sin()) * rad, color);
+        }
+    }
+}
+
 /// A speech bubble with a question mark: "say the question again".
 pub fn question_bubble_icon(font: Option<&Font>, c: Vec2, r: f32, color: Color) {
     let body = Rect::new(c.x - 0.6 * r, c.y - 0.5 * r, 1.2 * r, 0.85 * r);

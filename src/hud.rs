@@ -43,6 +43,12 @@ pub fn draw_home_button(ctx: &Ctx) {
     art::home_icon(c, r);
 }
 
+/// On the menu, the top-left button switches player instead of going home.
+pub fn draw_players_button(ctx: &Ctx) {
+    let (c, r) = button(home_rect(), ctx.button_pop[HOME]);
+    art::people_icon(c, r);
+}
+
 pub fn draw_game_buttons(ctx: &Ctx, level: u32) {
     draw_home_button(ctx);
 

@@ -23,10 +23,12 @@ impl Letter {
         format!("{{{}|{}}}", self.ipa, self.spelled)
     }
 
-    /// "Bee says buh. Buh, buh, ball!"
-    pub fn teach(&self) -> String {
+    /// "B says buh. Buh, buh, ball!" If the player's name starts with this letter, it's
+    /// mentioned too: "...And Sebastian!"
+    pub fn teach(&self, player: &str) -> String {
         let s = self.sound();
-        let extra = if self.letter == 'S' { " And Sebastian!" } else { "" };
+        let starts_name = player.chars().next().map(|c| c.to_ascii_uppercase()) == Some(self.letter);
+        let extra = if starts_name { format!(" And {player}!") } else { String::new() };
         let word = if self.letter == 'X' { "like the end of box" } else { self.word };
         format!("{} says {s}. {s}, {s}, {word}!{extra}", capitalize(self.name))
     }

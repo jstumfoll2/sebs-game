@@ -139,7 +139,7 @@ impl MiniGame for Letters {
                 // Tapping the picture says its letter and sound: "Bee says buh. Buh, buh, ball!"
                 if self.drag.held().is_none() && ctx.input.tapped(Self::clue_rect()) {
                     ctx.sfx.pop();
-                    ctx.voice.say(&self.target().teach());
+                    ctx.voice.say(&self.target().teach(&ctx.name));
                     return;
                 }
                 let rects = self.rects();
@@ -156,7 +156,7 @@ impl MiniGame for Letters {
                             let target = self.target();
                             if self.choices[i] == self.target {
                                 let leveled = self.progress.record(self.first_try);
-                                let words = format!("{}! {}", capitalize(target.name), target.teach());
+                                let words = format!("{}! {}", capitalize(target.name), target.teach(&ctx.name));
                                 ctx.correct(Self::placed_rect().center(), &words, leveled);
                                 self.phase = Phase::Celebrating(1.0);
                             } else {

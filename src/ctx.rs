@@ -4,13 +4,14 @@
 use crate::{fx::Confetti, input::Input, sfx::Sfx, voice::Voice};
 use macroquad::prelude::*;
 
+/// Things to say for a right answer. "NAME" is swapped for the player's name.
 pub const PRAISE: [&str; 8] = [
     "Great job!",
     "You did it!",
     "Awesome!",
     "Yay!",
     "Super!",
-    "Way to go, Sebastian!",
+    "Way to go, NAME!",
     "High five!",
     "Wow!",
 ];
@@ -21,7 +22,9 @@ pub struct Ctx {
     pub sfx: Sfx,
     pub voice: Voice,
     pub confetti: Confetti,
-    /// Stars earned this session (one per right answer).
+    /// Who's playing (used in the title, greetings and praise).
+    pub name: String,
+    /// Stars earned (one per right answer), saved with the player.
     pub stars: u32,
     /// Makes the star counter "pop" when it goes up. Fades from 1 to 0.
     pub star_pop: f32,
@@ -61,7 +64,7 @@ impl Ctx {
         self.confetti.burst(at, if leveled_up { 140 } else { 60 });
         self.stars += 1;
         self.star_pop = 1.0;
-        let praise = PRAISE[rand::gen_range(0, PRAISE.len())];
+        let praise = PRAISE[rand::gen_range(0, PRAISE.len())].replace("NAME", &self.name);
         self.voice.say(&format!("{praise} {words}"));
         if leveled_up {
             self.sfx.tada();

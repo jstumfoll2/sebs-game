@@ -5,7 +5,14 @@ use crate::ctx::Ctx;
 use crate::alphabet::{self, capitalize};
 use macroquad::prelude::*;
 
-const TITLE: &str = "Sebastian's Game";
+/// "Sebastian's Game", or "James' Game" for a name ending in s.
+fn title(name: &str) -> String {
+    if name.ends_with('s') {
+        format!("{name}' Game")
+    } else {
+        format!("{name}'s Game")
+    }
+}
 pub const LABELS: [&str; 4] = ["Colors", "Patterns", "Letters", "Counting"];
 const TILE_COLORS: [(u8, u8, u8); 4] = [(255, 228, 236), (232, 224, 255), (220, 245, 228), (255, 236, 214)];
 
@@ -17,12 +24,14 @@ pub struct Menu {
 impl Menu {
     pub fn new() -> Self {
         Menu {
-            bounce: vec![0.0; TITLE.chars().count()],
+            bounce: Vec::new(),
         }
     }
 
     /// Returns the index of the game that was tapped, if any.
     pub fn update(&mut self, ctx: &mut Ctx) -> Option<usize> {
+        let title = title(&ctx.name);
+        self.bounce.resize(title.chars().count(), 0.0);
         crate::games::fade(&mut self.bounce, ctx.dt, 2.0);
         if !ctx.input.pressed {
             return None;
@@ -36,7 +45,7 @@ impl Menu {
             }
         }
 
-        let (size, letters) = title_layout(ctx.font());
+        let (size, letters) = title_layout(ctx.font(), &title);
         for (i, (ch, c, w)) in letters.iter().enumerate() {
             let hit = Rect::new(c.x - w / 2.0, c.y - size * 0.6, *w, size * 1.2);
             if ch.is_alphabetic() && hit.contains(p) {
@@ -55,9 +64,10 @@ impl Menu {
         let font = ctx.font();
 
         // Rainbow title; each letter gently waves and hops when tapped.
-        let (size, letters) = title_layout(font);
+        let (size, letters) = title_layout(font, &title(&ctx.name));
         for (i, (ch, c, _)) in letters.iter().enumerate() {
-            let hop = (self.bounce[i] * std::f32::consts::PI).sin() * size * 0.35;
+            let bounce = self.bounce.get(i).copied().unwrap_or(0.0);
+            let hop = (bounce * std::f32::consts::PI).sin() * size * 0.35;
             let wave = (ctx.time * 2.5 + i as f32 * 0.5).sin() * size * 0.05;
             let pos = *c - vec2(0.0, hop + wave);
             let color = Paint::ALL[i % Paint::ALL.len()].color();
@@ -93,23 +103,31 @@ pub fn tiles() -> [Rect; 4] {
 }
 
 /// Font size plus (letter, center, width) for each title character.
-fn title_layout(font: Option<&Font>) -> (f32, Vec<(char, Vec2, f32)>) {
+fn title_layout(font: Option<&Font>, title: &str) -> (f32, Vec<(char, Vec2, f32)>) {
     let (w, h) = (screen_width(), screen_height());
-    let size = (h * 0.12).min(w * 0.066);
-    let widths: Vec<f32> = TITLE
-        .chars()
-        .map(|ch| {
-            if ch == ' ' {
-                size * 0.35
-            } else {
-                measure_text(&ch.to_string(), font, size as u16, 1.0).width + size * 0.04
-            }
-        })
-        .collect();
+    let measure = |size: f32| -> Vec<f32> {
+        title
+            .chars()
+            .map(|ch| {
+                if ch == ' ' {
+                    size * 0.35
+                } else {
+                    measure_text(&ch.to_string(), font, size as u16, 1.0).width + size * 0.04
+                }
+            })
+            .collect()
+    };
+    // Start big, then shrink long names so the title fits between the top buttons.
+    let mut size = (h * 0.12).min(w * 0.066);
+    let natural: f32 = measure(size).iter().sum();
+    if natural > w * 0.46 {
+        size *= w * 0.46 / natural;
+    }
+    let widths = measure(size);
     let total: f32 = widths.iter().sum();
     let mut x = (w - total) / 2.0;
     let y = h * 0.14;
-    let letters = TITLE
+    let letters = title
         .chars()
         .zip(&widths)
         .map(|(ch, &cw)| {

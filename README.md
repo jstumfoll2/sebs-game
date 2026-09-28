@@ -40,6 +40,13 @@ Everything is drawn with code and all sound effects are synthesized. The voice i
   top-right corner, which turns all sound off (red X) and back on.
 - Tap a letter in the title on the home screen to hear its name and sound.
 
+## Players
+
+The first time the game opens it asks for a name (a grown-up types it on the big on-screen
+keyboard or the laptop keyboard). Add more kids from the **"Who's playing?"** screen (the
+people button, top-left on the home screen). Each kid keeps their own stars and levels, saved in
+`%APPDATA%sebastians-gameplayers.json`. Edit or delete that file to rename or remove a player.
+
 ## Grown-up controls
 
 - `Esc` quits. `↑` / `↓` change the level of the current game.
@@ -59,6 +66,7 @@ Everything is drawn with code and all sound effects are synthesized. The voice i
 - `--gallery` shows all 26 alphabet pictures.
 - `--start 3:5` jumps straight into game 3 (Counting) at level 5. Games count from 0.
 - `--stars 12` starts with 12 stars; `--show-stars` opens the star panel.
+- `--players test.json` uses a different players file (so testing doesn't touch the real one).
 - `--snapshot out.png` saves a screenshot after 2.5 s (`--snapshot-after 5` to change) and quits.
 - `cargo test` runs the unit tests.
 - Every run writes `sebastians-game.log` (taps and what the voice does); `--no-log` turns it off.

@@ -5,6 +5,9 @@ edition = "2021"
 
 [dependencies]
 macroquad = { version = "0.4", features = ["audio"] }
+# Saving and loading the players file (names, stars, levels).
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 
 # Build dependencies (macroquad etc.) with optimizations even in debug mode,
 # so `cargo run` stays smooth while our own code still compiles fast.
