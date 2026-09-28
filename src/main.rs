@@ -69,6 +69,8 @@ enum Screen {
     Players,
     /// Typing a new player's name.
     NewName,
+    /// "Keep your stars, or start over?" for player number `usize`.
+    KeepStars(usize),
     Menu,
     Levels(usize),
     Playing(usize),
@@ -84,6 +86,7 @@ struct App {
     /// Which player is playing (index into `players.players`).
     current: Option<usize>,
     name_entry: who::NameEntry,
+    picker: who::Picker,
     star_panel: stars::StarPanel,
 }
 
@@ -94,10 +97,25 @@ impl App {
     }
 
     /// Start playing as player `i`: bring back their stars and levels.
-    fn pick_player(&mut self, i: usize, ctx: &mut Ctx) {
+    /// A player was picked. If they have stars, ask whether to keep them first.
+    fn choose_player(&mut self, i: usize, ctx: &mut Ctx) {
+        let p = &self.players.players[i];
+        if p.stars > 0 {
+            ctx.voice.say(&format!(
+                "Hi {}! You have {} stars. Do you want to keep them, or start over?",
+                p.name, p.stars
+            ));
+            self.screen = Screen::KeepStars(i);
+        } else {
+            self.pick_player(i, false, ctx);
+        }
+    }
+
+    /// Start playing as player `i`: bring back their stars (unless starting over) and levels.
+    fn pick_player(&mut self, i: usize, start_over: bool, ctx: &mut Ctx) {
         let p = self.players.players[i].clone();
         ctx.name = p.name.clone();
-        ctx.stars = p.stars;
+        ctx.stars = if start_over { 0 } else { p.stars };
         for (g, game) in self.games.iter_mut().enumerate() {
             let level = p.levels.get(&Self::game_key(g)).copied().unwrap_or(1);
             game.progress_mut().set_level(level);
@@ -133,8 +151,25 @@ impl App {
         self.name_entry.start(ctx);
     }
 
+    /// Take a player off the list for good.
+    fn remove_player(&mut self, i: usize, ctx: &mut Ctx) {
+        let name = self.players.players.remove(i).name;
+        self.players.last_player = None;
+        self.current = match self.current {
+            Some(c) if c == i => None,
+            Some(c) if c > i => Some(c - 1),
+            other => other,
+        };
+        self.players.save();
+        if self.players.players.is_empty() {
+            self.new_name(ctx);
+        } else {
+            ctx.voice.say(&format!("Bye bye, {name}!"));
+        }
+    }
+
     fn picking_player(&self) -> bool {
-        matches!(self.screen, Screen::Players | Screen::NewName)
+        matches!(self.screen, Screen::Players | Screen::NewName | Screen::KeepStars(_))
     }
 
     /// Handle taps and game logic for whichever screen we're on.
@@ -151,23 +186,35 @@ impl App {
         }
 
         match self.screen {
-            Screen::Players => match who::update_picker(&self.players, ctx) {
+            Screen::Players => match self.picker.update(&self.players, ctx) {
                 who::Pick::Player(i) => {
                     ctx.sfx.pop();
-                    self.pick_player(i, ctx);
+                    self.choose_player(i, ctx);
                 }
                 who::Pick::AddNew => {
                     ctx.sfx.pop();
                     self.new_name(ctx);
                 }
+                who::Pick::Remove(i) => self.remove_player(i, ctx),
                 who::Pick::Nothing => {}
+            },
+            Screen::KeepStars(i) => match who::update_star_choice(ctx) {
+                who::StarChoice::Keep => {
+                    ctx.sfx.pop();
+                    self.pick_player(i, false, ctx);
+                }
+                who::StarChoice::StartOver => {
+                    ctx.sfx.pop();
+                    self.pick_player(i, true, ctx);
+                }
+                who::StarChoice::Nothing => {}
             },
             Screen::NewName => {
                 let can_cancel = !self.players.players.is_empty();
                 match self.name_entry.update(ctx, can_cancel) {
                     who::Typed::Done(name) => {
                         let i = self.players.add(&name);
-                        self.pick_player(i, ctx);
+                        self.pick_player(i, false, ctx);
                     }
                     who::Typed::Cancel => self.show_players(ctx),
                     who::Typed::Nothing => {}
@@ -234,7 +281,11 @@ impl App {
     fn draw(&self, ctx: &Ctx) {
         art::background(ctx.time);
         match self.screen {
-            Screen::Players => who::draw_picker(&self.players, ctx),
+            Screen::Players => self.picker.draw(&self.players, ctx),
+            Screen::KeepStars(i) => {
+                let p = &self.players.players[i];
+                who::draw_star_choice(&p.name, p.stars, ctx);
+            }
             Screen::NewName => self.name_entry.draw(ctx, !self.players.players.is_empty()),
             Screen::Menu => {
                 self.menu.draw(ctx);
@@ -294,6 +345,7 @@ async fn main() {
         players: players::Players::load(),
         current: None,
         name_entry: who::NameEntry::default(),
+        picker: who::Picker::default(),
         star_panel: stars::StarPanel::default(),
     };
     let mut taps = input::TapFilter::default();
@@ -354,6 +406,16 @@ async fn main() {
         app.new_name(&mut ctx);
     } else {
         app.show_players(&mut ctx);
+    }
+
+    // `--pick 0` picks player 0; `--edit-players` opens the remove-a-player mode.
+    if let Some(i) = arg_value("--pick").and_then(|s| s.parse::<usize>().ok()) {
+        if i < app.players.players.len() {
+            app.choose_player(i, &mut ctx);
+        }
+    }
+    if std::env::args().any(|a| a == "--edit-players") {
+        app.picker.start_editing();
     }
 
     // `--stars 7` starts with 7 stars; `--show-stars` opens the star panel right away.
