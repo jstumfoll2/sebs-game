@@ -104,7 +104,7 @@ impl MiniGame for ColorSort {
     }
 
     fn prompt(&self) -> String {
-        format!("Where does the {} {} go?", self.target.name(), self.thing.name())
+        format!("Can you find the bucket for the {} {}?", self.target.name(), self.thing.name())
     }
 
     fn update(&mut self, ctx: &mut Ctx) {

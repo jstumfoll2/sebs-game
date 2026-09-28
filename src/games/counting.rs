@@ -221,7 +221,7 @@ impl MiniGame for Counting {
     fn prompt(&self) -> String {
         match self.stage {
             Stage::Choosing => format!("How many {}?", self.thing.plural()),
-            _ if self.n() == 0 => format!("Let's count the {}! Hmm... where are they?", self.name()),
+            _ if self.n() == 0 => format!("Let's count the {}! Hmm... are there any?", self.name()),
             _ => format!("Let's count the {}! Tap each one.", self.name()),
         }
     }

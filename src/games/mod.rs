@@ -5,6 +5,8 @@ pub mod counting;
 pub mod groups;
 pub mod letters;
 pub mod pattern;
+pub mod puzzle;
+pub mod shadows;
 
 use crate::ctx::Ctx;
 use macroquad::prelude::{Rect, Vec2};

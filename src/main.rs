@@ -14,6 +14,7 @@ mod log;
 mod menu;
 mod pictures;
 mod players;
+mod render;
 mod sfx;
 mod stars;
 mod voice;
@@ -23,7 +24,7 @@ mod who;
 use ctx::Ctx;
 use games::{
     color_sort::ColorSort, counting::Counting, groups::Groups, letters::Letters, pattern::Pattern,
-    MiniGame,
+    puzzle::Puzzle, shadows::Shadows, MiniGame,
 };
 use macroquad::prelude::*;
 
@@ -283,6 +284,8 @@ async fn main() {
         games: vec![
             Box::new(ColorSort::new()),
             Box::new(Pattern::new()),
+            Box::new(Shadows::new()),
+            Box::new(Puzzle::new()),
             Box::new(Letters::new()),
             Box::new(Counting::new()),
             Box::new(Groups::new()),
@@ -301,6 +304,29 @@ async fn main() {
     common.extend(art::Paint::ALL.iter().map(|p| p.name().to_string()));
     common.extend(["Pick a game!", "Pick a level!"].map(String::from));
     ctx.voice.prepare(&common);
+
+    // `cargo run -- --things` shows every object and shape the games use, in all the colors.
+    if std::env::args().any(|a| a == "--things") {
+        loop {
+            art::background(get_time() as f32);
+            let (w, h) = (screen_width(), screen_height());
+
+            let cell = (w / 6.0).min(h / 2.2);
+            for (i, t) in art::Thing::ALL.iter().enumerate() {
+                let (col, row) = ((i % 6) as f32, (i / 6) as f32);
+                let r = Rect::new(col * cell + cell * 0.05, row * cell * 1.05 + cell * 0.05, cell * 0.9, cell * 0.9);
+                art::card(r, WHITE);
+                let paint = art::Paint::ALL[i % art::Paint::ALL.len()];
+                art::draw_thing(*t, vec2(r.center().x, r.y + r.h * 0.42), r.h * 0.26, paint.color());
+                art::word_label(ctx.font(), t.name(), vec2(r.center().x, r.y + r.h * 0.86), r.h * 0.1, r.w * 0.9, art::readable(paint.color()), None);
+            }
+
+            if is_key_pressed(KeyCode::Escape) || snapshot_done(get_time() as f32) {
+                return;
+            }
+            next_frame().await;
+        }
+    }
 
     // `cargo run -- --gallery` shows every alphabet picture (handy when drawing new ones).
     if std::env::args().any(|a| a == "--gallery") {

@@ -13,10 +13,12 @@ fn title(name: &str) -> String {
         format!("{name}'s Game")
     }
 }
-pub const LABELS: [&str; 5] = ["Colors", "Patterns", "Letters", "Counting", "Groups"];
-const TILE_COLORS: [(u8, u8, u8); 5] = [
+pub const LABELS: [&str; 7] = ["Colors", "Patterns", "Shadows", "Puzzles", "Letters", "Counting", "Groups"];
+const TILE_COLORS: [(u8, u8, u8); 7] = [
     (255, 228, 236),
     (232, 224, 255),
+    (230, 230, 240),
+    (255, 243, 205),
     (220, 245, 228),
     (255, 236, 214),
     (222, 238, 255),
@@ -98,8 +100,8 @@ impl Menu {
 pub fn tiles() -> Vec<Rect> {
     let (w, h) = (screen_width(), screen_height());
     let area = Rect::new(w * 0.05, h * 0.27, w * 0.9, h * 0.68);
-    let cols = 3;
     let n = LABELS.len();
+    let cols = if n > 6 { 4 } else { 3 };
     let rows = n.div_ceil(cols);
     let gap = area.h * 0.05;
     let tw = (area.w - gap * (cols - 1) as f32) / cols as f32;
@@ -153,7 +155,8 @@ fn title_layout(font: Option<&Font>, title: &str) -> (f32, Vec<(char, Vec2, f32)
 
 fn draw_tile_icon(i: usize, r: Rect, ctx: &Ctx) {
     let font = ctx.font();
-    let s = r.h * 0.17;
+    // Size icons to fit narrow tiles too (about 7 icon-widths across).
+    let s = (r.h * 0.17).min(r.w * 0.13);
     let c = vec2(r.center().x, r.y + r.h * 0.4);
     let spread = s * 2.4;
     match i {
@@ -172,12 +175,29 @@ fn draw_tile_icon(i: usize, r: Rect, ctx: &Ctx) {
             art::text_center(font, "?", vec2(c.x + 1.5 * spread * 0.9, c.y), s * 2.2, art::INK);
         }
         2 => {
+            // A colorful fish next to its shadow.
+            let dark = Color::new(0.24, 0.24, 0.36, 1.0);
+            art::draw_thing(Thing::Fish, vec2(c.x - spread * 0.6, c.y), s * 1.2, Paint::Orange.color());
+            art::draw_thing(Thing::Fish, vec2(c.x + spread * 0.6, c.y), s * 1.2, dark);
+        }
+        3 => {
+            // Four puzzle pieces, one lifted out.
+            let p = s * 1.1;
+            let colors = [Paint::Red, Paint::Blue, Paint::Green, Paint::Yellow];
+            for (k, paint) in colors.iter().enumerate() {
+                let (col, row) = ((k % 2) as f32, (k / 2) as f32);
+                let lift = if k == 3 { vec2(p * 0.5, p * 0.35) } else { Vec2::ZERO };
+                let r = Rect::new(c.x - p + col * p + lift.x, c.y - p + row * p + lift.y, p * 0.94, p * 0.94);
+                art::rounded_rect(r, p * 0.15, paint.color());
+            }
+        }
+        4 => {
             for (k, (letter, p)) in [("A", Paint::Red), ("B", Paint::Blue), ("C", Paint::Green)].iter().enumerate() {
                 let x = c.x + (k as f32 - 1.0) * spread;
                 art::text_center(font, letter, vec2(x, c.y), s * 2.4, p.color());
             }
         }
-        3 => {
+        5 => {
             for k in 0..3 {
                 let x = c.x + (k as f32 - 1.0) * spread;
                 art::draw_thing(Thing::Apple, vec2(x, c.y), s * 0.9, Paint::Red.color());

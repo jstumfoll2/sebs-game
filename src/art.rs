@@ -36,7 +36,7 @@ impl Paint {
 
     pub fn color(self) -> Color {
         match self {
-            Paint::Red => Color::from_rgba(229, 57, 53, 255),
+            Paint::Red => Color::from_rgba(214, 22, 22, 255),
             Paint::Orange => Color::from_rgba(251, 140, 0, 255),
             Paint::Yellow => Color::from_rgba(253, 216, 53, 255),
             Paint::Green => Color::from_rgba(67, 160, 71, 255),
@@ -70,16 +70,28 @@ pub enum Thing {
     Heart,
     Balloon,
     Fish,
+    Circle,
+    Square,
+    Triangle,
+    Rectangle,
+    Diamond,
+    Oval,
 }
 
 impl Thing {
-    pub const ALL: [Thing; 6] = [
+    pub const ALL: [Thing; 12] = [
         Thing::Ball,
         Thing::Apple,
         Thing::Star,
         Thing::Heart,
         Thing::Balloon,
         Thing::Fish,
+        Thing::Circle,
+        Thing::Square,
+        Thing::Triangle,
+        Thing::Rectangle,
+        Thing::Diamond,
+        Thing::Oval,
     ];
 
     pub fn name(self) -> &'static str {
@@ -90,6 +102,12 @@ impl Thing {
             Thing::Heart => "heart",
             Thing::Balloon => "balloon",
             Thing::Fish => "fish",
+            Thing::Circle => "circle",
+            Thing::Square => "square",
+            Thing::Triangle => "triangle",
+            Thing::Rectangle => "rectangle",
+            Thing::Diamond => "diamond",
+            Thing::Oval => "oval",
         }
     }
 
@@ -101,6 +119,12 @@ impl Thing {
             Thing::Heart => "hearts",
             Thing::Balloon => "balloons",
             Thing::Fish => "fish",
+            Thing::Circle => "circles",
+            Thing::Square => "squares",
+            Thing::Triangle => "triangles",
+            Thing::Rectangle => "rectangles",
+            Thing::Diamond => "diamonds",
+            Thing::Oval => "ovals",
         }
     }
 }
@@ -273,6 +297,53 @@ pub fn draw_thing(thing: Thing, c: Vec2, s: f32, color: Color) {
             draw_circle(c.x - 0.3 * s, c.y - 0.45 * s, 0.14 * s, shine);
             face(c + vec2(0.0, -0.1 * s), 0.5 * s);
         }
+        // The basic shapes: a darker outline, the color on top, and a friendly face.
+        Thing::Circle => {
+            draw_circle(c.x, c.y, 0.85 * s, dark);
+            draw_circle(c.x, c.y, 0.77 * s, color);
+            face(c + vec2(0.0, 0.08 * s), 0.5 * s);
+        }
+        Thing::Square => {
+            let o = 0.05 * s;
+            rounded_rect(Rect::new(c.x - 0.78 * s, c.y - 0.78 * s, 1.56 * s, 1.56 * s), 0.12 * s, dark);
+            rounded_rect(Rect::new(c.x - 0.78 * s + o, c.y - 0.78 * s + o, 1.56 * s - 2.0 * o, 1.56 * s - 2.0 * o), 0.1 * s, color);
+            face(c + vec2(0.0, 0.08 * s), 0.5 * s);
+        }
+        Thing::Triangle => {
+            let tri = |k: f32, col: Color| {
+                draw_triangle(
+                    c + vec2(0.0, -0.95 * s) * k,
+                    c + vec2(-0.95 * s, 0.75 * s) * k,
+                    c + vec2(0.95 * s, 0.75 * s) * k,
+                    col,
+                )
+            };
+            tri(1.0, dark);
+            tri(0.88, color);
+            face(c + vec2(0.0, 0.25 * s), 0.4 * s);
+        }
+        Thing::Rectangle => {
+            let o = 0.05 * s;
+            rounded_rect(Rect::new(c.x - 0.98 * s, c.y - 0.58 * s, 1.96 * s, 1.16 * s), 0.12 * s, dark);
+            rounded_rect(Rect::new(c.x - 0.98 * s + o, c.y - 0.58 * s + o, 1.96 * s - 2.0 * o, 1.16 * s - 2.0 * o), 0.1 * s, color);
+            face(c + vec2(0.0, 0.06 * s), 0.45 * s);
+        }
+        Thing::Diamond => {
+            let diamond = |k: f32, col: Color| {
+                let (top, bot) = (c + vec2(0.0, -0.95 * s * k), c + vec2(0.0, 0.95 * s * k));
+                let (left, right) = (c + vec2(-0.7 * s * k, 0.0), c + vec2(0.7 * s * k, 0.0));
+                draw_triangle(top, left, right, col);
+                draw_triangle(bot, left, right, col);
+            };
+            diamond(1.0, dark);
+            diamond(0.88, color);
+            face(c + vec2(0.0, 0.08 * s), 0.4 * s);
+        }
+        Thing::Oval => {
+            draw_ellipse(c.x, c.y, 0.98 * s, 0.66 * s, 0.0, dark);
+            draw_ellipse(c.x, c.y, 0.9 * s, 0.58 * s, 0.0, color);
+            face(c + vec2(0.0, 0.06 * s), 0.45 * s);
+        }
         Thing::Fish => {
             draw_triangle(
                 vec2(c.x - 0.35 * s, c.y),
@@ -429,7 +500,9 @@ pub fn text_left(font: Option<&Font>, text: &str, x: f32, cy: f32, size: f32, co
 
 pub fn background(time: f32) {
     let (w, h) = (screen_width(), screen_height());
-    clear_background(SKY);
+    // A full-screen rectangle rather than clear_background(): clearing throws away drawing
+    // that's still queued up this frame, like pictures being drawn into puzzle images.
+    draw_rectangle(0.0, 0.0, w, h, SKY);
 
     // Drifting clouds.
     for i in 0..4 {
