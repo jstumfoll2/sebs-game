@@ -4,6 +4,7 @@
 mod alphabet;
 mod art;
 mod assets;
+mod banner;
 mod ctx;
 mod fx;
 mod games;
@@ -89,6 +90,8 @@ struct App {
     name_entry: who::NameEntry,
     picker: who::Picker,
     star_panel: stars::StarPanel,
+    /// "Level 3 done!" while it's showing.
+    banner: Option<banner::LevelBanner>,
 }
 
 impl App {
@@ -118,8 +121,10 @@ impl App {
         ctx.name = p.name.clone();
         ctx.stars = if start_over { 0 } else { p.stars };
         for (g, game) in self.games.iter_mut().enumerate() {
-            let level = p.levels.get(&Self::game_key(g)).copied().unwrap_or(1);
+            let key = Self::game_key(g);
+            let level = p.levels.get(&key).copied().unwrap_or(1);
             game.progress_mut().set_level(level);
+            game.progress_mut().completed = p.completed.get(&key).into_iter().flatten().copied().collect();
         }
         self.current = Some(i);
         self.players.last_player = Some(i);
@@ -135,7 +140,11 @@ impl App {
         let levels = (0..self.games.len())
             .map(|g| (Self::game_key(g), self.games[g].progress().level))
             .collect();
-        let now = players::Player { name: ctx.name.clone(), stars: ctx.stars, levels };
+        let completed = (0..self.games.len())
+            .filter(|&g| !self.games[g].progress().completed.is_empty())
+            .map(|g| (Self::game_key(g), self.games[g].progress().completed.iter().copied().collect()))
+            .collect();
+        let now = players::Player { name: ctx.name.clone(), stars: ctx.stars, levels, completed };
         if self.players.players.get(i) != Some(&now) {
             self.players.players[i] = now;
             self.players.save();
@@ -280,6 +289,16 @@ impl App {
                 } else {
                     game.update(ctx);
                 }
+                // Just finished a level? Show the banner (and fireworks).
+                let max = self.games[i].progress().max;
+                if let Some(done) = self.games[i].progress_mut().take_finished() {
+                    self.banner = Some(banner::LevelBanner::new(done, max, ctx));
+                }
+            }
+        }
+        if let Some(b) = &mut self.banner {
+            if !b.update(ctx.dt) {
+                self.banner = None;
             }
         }
         self.save_progress(ctx);
@@ -312,7 +331,11 @@ impl App {
             hud::draw_stars(ctx);
         }
         hud::draw_mute_button(ctx);
+        if let Some(b) = &self.banner {
+            b.draw(ctx);
+        }
         ctx.confetti.draw();
+        ctx.fireworks.draw();
         self.star_panel.draw(ctx);
     }
 }
@@ -328,6 +351,7 @@ async fn main() {
         sfx: sfx::Sfx::load().await,
         voice: voice::Voice::new(),
         confetti: fx::Confetti::default(),
+        fireworks: fx::Fireworks::default(),
         name: "friend".to_string(),
         stars: 0,
         star_pop: 0.0,
@@ -357,6 +381,7 @@ async fn main() {
         name_entry: who::NameEntry::default(),
         picker: who::Picker::default(),
         star_panel: stars::StarPanel::default(),
+        banner: None,
     };
     let mut taps = input::TapFilter::default();
 
@@ -436,6 +461,11 @@ async fn main() {
         app.star_panel.open(&mut ctx);
     }
 
+    // `--banner` shows the "Level 2 done!" banner (to check how it looks).
+    if std::env::args().any(|a| a == "--banner") {
+        app.banner = Some(banner::LevelBanner::new(2, 5, &mut ctx));
+    }
+
     // `--levels 0` opens game 0's level picker.
     if let Some(i) = arg_value("--levels").and_then(|s| s.parse::<usize>().ok()) {
         app.screen = Screen::Levels(i.min(app.games.len() - 1));
@@ -480,6 +510,7 @@ async fn main() {
         ctx.star_pop = (ctx.star_pop - ctx.dt * 2.0).max(0.0);
         games::fade(&mut ctx.button_pop, ctx.dt, 3.0);
         ctx.confetti.update(ctx.dt);
+        ctx.fireworks.update(ctx.dt);
         log::step("voice");
         ctx.voice.update().await;
 

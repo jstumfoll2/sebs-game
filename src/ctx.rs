@@ -1,7 +1,12 @@
 //! `Ctx` ("context") bundles the things every game needs: input, font, sound, voice, confetti.
 //! It gets passed into each game's `update` and `draw`.
 
-use crate::{fx::Confetti, input::Input, sfx::Sfx, voice::Voice};
+use crate::{
+    fx::{Confetti, Fireworks},
+    input::Input,
+    sfx::Sfx,
+    voice::Voice,
+};
 use macroquad::prelude::*;
 
 /// Things to say for a right answer. "NAME" is swapped for the player's name.
@@ -22,6 +27,7 @@ pub struct Ctx {
     pub sfx: Sfx,
     pub voice: Voice,
     pub confetti: Confetti,
+    pub fireworks: Fireworks,
     /// Who's playing (used in the title, greetings and praise).
     pub name: String,
     /// Stars earned (one per right answer), saved with the player.
@@ -67,8 +73,7 @@ impl Ctx {
         let praise = PRAISE[rand::gen_range(0, PRAISE.len())].replace("NAME", &self.name);
         self.voice.say(&format!("{praise} {words}"));
         if leveled_up {
-            self.sfx.tada();
-            self.voice.then("You're getting so good at this!");
+            self.sfx.tada(); // the "Level 3 done!" banner says the rest
         }
     }
 

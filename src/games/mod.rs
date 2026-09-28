@@ -32,17 +32,22 @@ pub trait MiniGame {
 /// Right answers in a row (on the first try) needed to move up a level.
 const STREAK_TO_LEVEL_UP: u32 = 4;
 
-/// Tracks difficulty. Levels only ever go up on their own; a parent can use the
-/// arrow keys to move them up or down.
+/// Tracks difficulty. A level is "finished" after enough right answers in a row; then the
+/// game moves up a level on its own. Finished levels are remembered (and saved with the
+/// player) so the level picker can tick them off. A parent can use the arrow keys too.
 pub struct Progress {
     pub level: u32,
     pub max: u32,
     streak: u32,
+    /// Levels finished so far.
+    pub completed: std::collections::BTreeSet<u32>,
+    /// A level that was just finished (for the "Level 3 done!" banner).
+    just_finished: Option<u32>,
 }
 
 impl Progress {
     pub fn new(max: u32) -> Self {
-        Progress { level: 1, max, streak: 0 }
+        Progress { level: 1, max, streak: 0, completed: Default::default(), just_finished: None }
     }
 
     /// Record a right answer. Returns true if that earned a level up.
@@ -52,18 +57,34 @@ impl Progress {
             return false;
         }
         self.streak += 1;
-        if self.streak >= STREAK_TO_LEVEL_UP && self.level < self.max {
+        if self.streak < STREAK_TO_LEVEL_UP {
+            return false;
+        }
+        self.streak = 0;
+        let done = self.level;
+        let first_time = self.completed.insert(done);
+        if self.level < self.max {
+            self.just_finished = Some(done);
             self.level += 1;
-            self.streak = 0;
             true
         } else {
+            // The last level: celebrate finishing it (once).
+            if first_time {
+                self.just_finished = Some(done);
+            }
             false
         }
+    }
+
+    /// The level that was just finished, if any (only reported once).
+    pub fn take_finished(&mut self) -> Option<u32> {
+        self.just_finished.take()
     }
 
     pub fn set_level(&mut self, level: u32) {
         self.level = level.clamp(1, self.max);
         self.streak = 0;
+        self.just_finished = None;
     }
 }
 
@@ -268,4 +289,38 @@ pub fn row_of_cards(n: usize, max_w: f32, max_h: f32, cy: f32) -> Vec<macroquad:
             )
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn finishing_levels() {
+        let mut p = Progress::new(2);
+        // A miss resets the streak.
+        for _ in 0..3 {
+            p.record(true);
+        }
+        p.record(false);
+        assert_eq!(p.level, 1);
+        assert_eq!(p.take_finished(), None);
+        // Four in a row finishes level 1 and moves up.
+        for _ in 0..3 {
+            assert!(!p.record(true));
+        }
+        assert!(p.record(true));
+        assert_eq!((p.level, p.take_finished()), (2, Some(1)));
+        assert_eq!(p.take_finished(), None, "only reported once");
+        // Finishing the last level is celebrated once, and it stays on the last level.
+        for _ in 0..4 {
+            p.record(true);
+        }
+        assert_eq!((p.level, p.take_finished()), (2, Some(2)));
+        for _ in 0..4 {
+            p.record(true);
+        }
+        assert_eq!(p.take_finished(), None);
+        assert_eq!(p.completed.iter().copied().collect::<Vec<_>>(), vec![1, 2]);
+    }
 }

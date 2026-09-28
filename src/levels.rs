@@ -56,5 +56,21 @@ pub fn draw(game: &dyn MiniGame, name: &str, ctx: &Ctx) {
             size *= r.w * 0.9 / width;
         }
         art::text_center(font, &caption, vec2(r.center().x, r.y + r.h * 0.83), size, art::INK);
+
+        // A green check on levels already finished.
+        if game.progress().completed.contains(&level) {
+            let c = vec2(r.x + r.w * 0.9, r.y + r.w * 0.1);
+            let rad = r.w * 0.14;
+            draw_circle(c.x, c.y + rad * 0.1, rad, art::SHADOW);
+            draw_circle(c.x, c.y, rad, Paint::Green.color());
+            let t = rad * 0.22;
+            draw_line(c.x - rad * 0.45, c.y, c.x - rad * 0.1, c.y + rad * 0.38, t, WHITE);
+            draw_line(c.x - rad * 0.1, c.y + rad * 0.38, c.x + rad * 0.5, c.y - rad * 0.35, t, WHITE);
+        }
+    }
+    let done = game.progress().completed.len();
+    if done > 0 {
+        let note = format!("Finished {done} of {} levels", game.progress().max);
+        art::text_center(font, &note, vec2(w / 2.0, h * 0.86), h * 0.045, art::INK);
     }
 }

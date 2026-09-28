@@ -22,6 +22,9 @@ pub struct Player {
     /// Each game's level, by game name ("colors", "counting", ...).
     #[serde(default)]
     pub levels: BTreeMap<String, u32>,
+    /// Which levels of each game have been finished (ticked off in the level picker).
+    #[serde(default)]
+    pub completed: BTreeMap<String, Vec<u32>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default)]
