@@ -1,6 +1,7 @@
 //! The star panel: tap the star counter to see every star earned, and count them together.
-//! Up to 10 stars we count by ones; past that we count by fives ("five, ten, fifteen...")
-//! and finish with ones, which is a nice first taste of skip counting.
+//! Small piles are counted by ones (or sometimes twos); bigger ones are counted in groups of
+//! 2, 3, 5 or 10 ("five, ten, fifteen..."), picked at random each time and finishing with
+//! ones, which is a nice taste of skip counting.
 
 use crate::alphabet::capitalize;
 use crate::art;
@@ -11,8 +12,6 @@ use macroquad::prelude::*;
 
 /// Seconds (at least) between numbers while counting out loud.
 const STEP: f32 = 0.35;
-/// Up to this many stars we count by ones; past it we count by fives.
-const COUNT_BY_ONES_MAX: usize = 10;
 /// Most stars we'll draw and count (after that the number says it all).
 const MAX_SHOWN: usize = 100;
 
@@ -21,8 +20,10 @@ pub struct StarPanel {
     is_open: bool,
     /// How many stars are showing so far (they pop in as we count).
     shown: usize,
-    /// How many stars appeared in the last step (1, or 5 when counting by fives).
+    /// How many stars appeared in the last step (1, or a whole group).
     last_step: usize,
+    /// Counting by this many at a time (1 = by ones). Chosen when the panel opens.
+    group: usize,
     counting: bool,
     step_time: f32,
     /// Makes the newest stars pop.
@@ -47,9 +48,9 @@ impl StarPanel {
             if self.step_time >= STEP && !ctx.voice.busy() {
                 self.step_time = 0.0;
                 if self.shown < total {
-                    // Jump by five while a whole group of five fits, then go by ones.
-                    let by_fives = total > COUNT_BY_ONES_MAX && self.shown % 5 == 0 && self.shown + 5 <= total;
-                    self.last_step = if by_fives { 5 } else { 1 };
+                    // Jump by a group while a whole group fits, then go by ones.
+                    let g = self.group;
+                    self.last_step = if g > 1 && self.shown.is_multiple_of(g) && self.shown + g <= total { g } else { 1 };
                     self.shown += self.last_step;
                     self.pop = 1.0;
                     ctx.sfx.pop();
@@ -84,7 +85,14 @@ impl StarPanel {
         } else if total <= MAX_SHOWN {
             self.shown = 0;
             self.counting = true;
-            let how = if total > COUNT_BY_ONES_MAX { " Let's count by fives!" } else { "" };
+            self.group = choose_group(total, self.group);
+            let how = match self.group {
+                2 => " Let's count by twos!",
+                3 => " Let's count by threes!",
+                5 => " Let's count by fives!",
+                10 => " Let's count by tens!",
+                _ => "",
+            };
             ctx.voice.say(&format!("Let's count your stars!{how}"));
         } else {
             // So many! Just show them and say the number.
@@ -131,6 +139,29 @@ impl StarPanel {
     }
 }
 
+/// The group sizes that suit a pile of `total` stars: at least two whole groups, and bigger
+/// piles get bigger groups (by ones only for the smallest piles).
+fn group_options(total: usize) -> Vec<usize> {
+    match total {
+        0..=3 => vec![1],
+        4..=10 => vec![1, 1, 2],
+        11..=19 => vec![2, 5, 2, 5],
+        20..=29 => vec![2, 5, 10, 5],
+        30..=40 => vec![2, 3, 5, 10, 5, 10],
+        _ => vec![5, 10, 5, 10, 2],
+    }
+}
+
+/// Pick how to count, different from `last` time when there's a choice.
+fn choose_group(total: usize, last: usize) -> usize {
+    let mut options = group_options(total);
+    let fresh: Vec<usize> = options.iter().copied().filter(|g| *g != last).collect();
+    if !fresh.is_empty() {
+        options = fresh;
+    }
+    options[macroquad::rand::gen_range(0, options.len())]
+}
+
 /// "one star", "twenty-three stars"
 fn stars_phrase(n: usize) -> String {
     if n == 1 {
@@ -143,6 +174,21 @@ fn stars_phrase(n: usize) -> String {
 #[cfg(test)]
 mod tests {
     use crate::games::counting::number_word;
+
+    #[test]
+    fn groups_fit_the_pile() {
+        for total in 1..=100 {
+            let options = super::group_options(total);
+            assert!(!options.is_empty());
+            // Every choice makes at least two whole groups (or is by ones).
+            assert!(options.iter().all(|&g| g == 1 || g * 2 <= total), "{total}: {options:?}");
+            // Never the same twice in a row when there's a choice.
+            for last in 1..=10 {
+                let g = super::choose_group(total, last);
+                assert!(options.contains(&g) && (g != last || options.iter().all(|&o| o == last)));
+            }
+        }
+    }
 
     #[test]
     fn number_words() {

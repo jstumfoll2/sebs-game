@@ -18,6 +18,9 @@ const LEVELS: [(&[usize], usize, usize); 6] = [
     (&[3], 2, 4),
     (&[2, 3, 5, 10], 2, 5),
 ];
+/// How often a round uses one of the group sizes from earlier levels instead of this level's
+/// own, so counting by 5s (say) is sometimes counting by 2s. Keeps old skills fresh.
+const MIX_CHANCE: f32 = 0.3;
 /// Minimum seconds per number when counting together after a miss.
 const RECOUNT_STEP: f32 = 0.6;
 
@@ -77,8 +80,13 @@ impl Groups {
     }
 
     fn new_round(&mut self) {
-        let (sizes, lo, hi) = LEVELS[(self.progress.level - 1) as usize];
-        self.size = pick(sizes);
+        let level = self.progress.level;
+        let (sizes, lo, hi) = LEVELS[(level - 1) as usize];
+        self.size = if rand::gen_range(0.0, 1.0) < MIX_CHANCE {
+            pick(&unlocked(level))
+        } else {
+            pick(sizes)
+        };
         self.plates = rand::gen_range(lo, hi + 1);
         self.thing = pick(&Thing::ALL);
         self.paint = if self.thing == Thing::Apple { Paint::Red } else { pick(&Paint::ALL) };
@@ -291,11 +299,25 @@ impl MiniGame for Groups {
     fn level_label(&self, level: u32) -> String {
         let (sizes, lo, hi) = LEVELS[(level - 1) as usize];
         if sizes.len() == 1 {
-            format!("{}s, {lo}-{hi} plates", sizes[0])
+            let mix = if unlocked(level).len() > 1 { " + mix" } else { "" };
+            format!("{}s{mix}, {lo}-{hi} plates", sizes[0])
         } else {
             "mixed".to_string()
         }
     }
+}
+
+/// Every group size from this level and the ones before it (each once, in order).
+fn unlocked(level: u32) -> Vec<usize> {
+    let mut sizes: Vec<usize> = Vec::new();
+    for (level_sizes, _, _) in &LEVELS[..level as usize] {
+        for s in *level_sizes {
+            if !sizes.contains(s) {
+                sizes.push(*s);
+            }
+        }
+    }
+    sizes
 }
 
 /// Neatly arrange `n` things on a plate: in rows, like dots on dice or a ten-frame.
@@ -321,6 +343,22 @@ fn draw_group(thing: Thing, color: Color, n: usize, r: Rect) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn sizes_mix_in_earlier_ones_but_never_later_ones() {
+        assert_eq!(unlocked(1), vec![2]);
+        assert_eq!(unlocked(3), vec![2, 5]);
+        assert_eq!(unlocked(5), vec![2, 5, 10, 3]);
+        let mut game = Groups::new();
+        game.progress.set_level(4); // tens, with 2s and 5s mixed in
+        let seen: std::collections::BTreeSet<usize> = (0..300)
+            .map(|_| {
+                game.new_round();
+                game.size
+            })
+            .collect();
+        assert_eq!(seen.into_iter().collect::<Vec<_>>(), vec![2, 5, 10], "no 3s yet at level 4");
+    }
 
     #[test]
     fn choices_are_distinct_multiples_including_the_answer() {

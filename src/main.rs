@@ -8,6 +8,7 @@ mod banner;
 mod ctx;
 mod fx;
 mod games;
+mod glyphs;
 mod hud;
 mod input;
 mod keyboard;
@@ -20,6 +21,7 @@ mod power;
 mod render;
 mod sfx;
 mod stars;
+mod tracing;
 mod versus;
 mod voice;
 mod voicepick;
@@ -30,7 +32,7 @@ mod winner;
 use ctx::Ctx;
 use games::{
     color_sort::ColorSort, counting::Counting, drawing::Drawing, groups::Groups, letters::Letters, pattern::Pattern,
-    puzzle::Puzzle, shadows::Shadows, spelling::Spelling, MiniGame,
+    puzzle::Puzzle, shadows::Shadows, spelling::Spelling, writing::Writing, MiniGame,
 };
 use macroquad::prelude::*;
 
@@ -493,6 +495,7 @@ async fn main() {
             Box::new(Counting::new()),
             Box::new(Groups::new()),
             Box::new(Drawing::new()),
+            Box::new(Writing::new()),
         ],
         menu: menu::Menu::new(),
         players,
@@ -618,6 +621,11 @@ async fn main() {
     // `--banner` shows the "Level 2 done!" banner (to check how it looks).
     if std::env::args().any(|a| a == "--banner") {
         app.banner = Some(banner::LevelBanner::new(2, 5, &mut ctx));
+    }
+
+    // `--menu` shows the home screen (without picking a player).
+    if std::env::args().any(|a| a == "--menu") {
+        app.screen = Screen::Menu;
     }
 
     // `--levels 0` opens game 0's level picker.

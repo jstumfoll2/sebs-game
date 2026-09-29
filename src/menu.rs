@@ -17,10 +17,10 @@ fn title(ctx: &Ctx) -> String {
         format!("{name}'s Game")
     }
 }
-pub const LABELS: [&str; 9] = [
-    "Colors", "Patterns", "Shadows", "Puzzles", "Letters", "Spelling", "Counting", "Groups", "Drawing",
+pub const LABELS: [&str; 10] = [
+    "Colors", "Patterns", "Shadows", "Puzzles", "Letters", "Spelling", "Counting", "Groups", "Drawing", "Writing",
 ];
-const TILE_COLORS: [(u8, u8, u8); 9] = [
+const TILE_COLORS: [(u8, u8, u8); 10] = [
     (255, 228, 236),
     (232, 224, 255),
     (230, 230, 240),
@@ -30,6 +30,7 @@ const TILE_COLORS: [(u8, u8, u8); 9] = [
     (255, 236, 214),
     (222, 238, 255),
     (250, 230, 255),
+    (255, 240, 220),
 ];
 
 pub struct Menu {
@@ -250,7 +251,7 @@ fn draw_tile_icon(i: usize, r: Rect, ctx: &Ctx) {
                 art::badge(font, vec2(plate.x + plate.w, plate.y), s * 0.36, &((k + 1) * 2).to_string());
             }
         }
-        _ => {
+        8 => {
             // A painter's palette with a rainbow brush stroke.
             let pal = c + vec2(-spread * 0.45, 0.0);
             draw_ellipse(pal.x, pal.y, s * 1.6, s * 1.15, 0.0, Color::from_rgba(214, 170, 120, 255));
@@ -262,6 +263,26 @@ fn draw_tile_icon(i: usize, r: Rect, ctx: &Ctx) {
                 let r = s * (1.4 - k as f32 * 0.15);
                 art::arc(c + vec2(spread * 0.75, s * 0.9), r, 1.1 * std::f32::consts::PI, 1.9 * std::f32::consts::PI, s * 0.16, p.color());
             }
+        }
+        _ => {
+            // A dotted squiggle being traced by a pencil.
+            let squiggle = |t: f32| c + vec2(-spread * 0.3 + (t * std::f32::consts::TAU).sin() * s * 1.1, (t - 0.5) * s * 3.2);
+            for k in 0..=24 {
+                let t = k as f32 / 24.0;
+                let p = squiggle(t);
+                draw_circle(p.x, p.y, s * 0.15, if t < 0.6 { Paint::Blue.color() } else { art::SHADOW });
+            }
+            // The pencil: dark tip, yellow body and pink eraser, where the traced part ends.
+            let tip = squiggle(0.6);
+            let dir = vec2(0.55, -0.83);
+            let side = dir.perp() * s * 0.38;
+            let (a, b) = (tip + dir * s * 1.0, tip + dir * s * 3.4);
+            draw_triangle(tip, a + side, a - side, Color::from_rgba(90, 60, 40, 255));
+            draw_triangle(a + side, a - side, b - side, Paint::Yellow.color());
+            draw_triangle(a + side, b - side, b + side, Paint::Yellow.color());
+            let e = b + dir * s * 0.6;
+            draw_triangle(b + side, b - side, e - side, Paint::Pink.color());
+            draw_triangle(b + side, e - side, e + side, Paint::Pink.color());
         }
     }
 }

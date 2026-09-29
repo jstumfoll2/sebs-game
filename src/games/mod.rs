@@ -9,6 +9,7 @@ pub mod pattern;
 pub mod puzzle;
 pub mod shadows;
 pub mod spelling;
+pub mod writing;
 
 use crate::ctx::Ctx;
 use macroquad::prelude::{Rect, Vec2};
