@@ -107,6 +107,11 @@ impl Fireworks {
         self.show_left = 0.0;
     }
 
+    /// How many sparks are flying (for the speed log).
+    pub fn sparks(&self) -> usize {
+        self.sparks.len()
+    }
+
     fn launch(&mut self) {
         let (w, h) = (screen_width(), screen_height());
         let paint = Paint::ALL[rand::gen_range(0, Paint::ALL.len())];

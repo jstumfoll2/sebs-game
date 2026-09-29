@@ -1,6 +1,6 @@
 //! The kids who play, saved to a file so we only ask for a name once.
 //!
-//! The file lives at `%APPDATA%\sebastians-game\players.json` and looks like:
+//! The file lives at `%APPDATA%\star-catchers\players.json` and looks like:
 //! ```json
 //! { "players": [ { "name": "Sebastian", "stars": 12, "levels": { "colors": 3 } } ],
 //!   "last_player": 0 }
@@ -45,6 +45,7 @@ pub const MAX_NAME: usize = 14;
 impl Players {
     /// Load the players file (or start empty if there isn't one yet, or it can't be read).
     pub fn load() -> Players {
+        move_old_file();
         std::fs::read_to_string(path())
             .ok()
             .and_then(|text| serde_json::from_str(&text).ok())
@@ -85,8 +86,28 @@ pub fn path() -> PathBuf {
         }
     }
     match std::env::var_os("APPDATA") {
-        Some(appdata) => PathBuf::from(appdata).join("sebastians-game").join("players.json"),
+        Some(appdata) => PathBuf::from(appdata).join("star-catchers").join("players.json"),
         None => PathBuf::from("players.json"),
+    }
+}
+
+/// The game used to be called "Sebastian's Game" and kept players in
+/// `%APPDATA%\sebastians-game`. The first time, copy that file over so nobody loses their stars.
+fn move_old_file() {
+    if std::env::args().any(|a| a == "--players") {
+        return; // a test file: leave the real ones alone
+    }
+    let Some(appdata) = std::env::var_os("APPDATA") else { return };
+    let old = PathBuf::from(appdata).join("sebastians-game").join("players.json");
+    let new = path();
+    if old.exists() && !new.exists() {
+        if let Some(dir) = new.parent() {
+            let _ = std::fs::create_dir_all(dir);
+        }
+        match std::fs::copy(&old, &new) {
+            Ok(_) => crate::log::line(&format!("copied players from {}", old.display())),
+            Err(e) => crate::log::line(&format!("couldn't copy players from {}: {e}", old.display())),
+        }
     }
 }
 

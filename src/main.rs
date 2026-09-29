@@ -16,6 +16,7 @@ mod log;
 mod menu;
 mod pictures;
 mod players;
+mod power;
 mod render;
 mod sfx;
 mod stars;
@@ -33,17 +34,27 @@ use games::{
 };
 use macroquad::prelude::*;
 
+/// How long each frame should take: 60 frames a second.
+const FRAME_SECS: f64 = 1.0 / 60.0;
+
 fn window_conf() -> Conf {
     // `cargo run -- --windowed` runs in a window instead of fullscreen (handy while coding).
     let windowed = std::env::args().any(|a| a == "--windowed");
     Conf {
-        window_title: "Play and Learn".to_string(),
+        window_title: "Star Catchers".to_string(),
         fullscreen: !windowed,
         window_width: 1280,
         window_height: 800,
         window_resizable: true,
         // Without this, Windows display scaling (e.g. 150%) makes taps land in the wrong spot.
         high_dpi: true,
+        // Don't wait for the screen's refresh ("vsync"): on battery Windows makes that wait
+        // two or three refreshes long, dropping the game to 20 fps. We pace frames ourselves
+        // instead (see FRAME_SECS). `--vsync` turns the old way back on.
+        platform: macroquad::miniquad::conf::Platform {
+            swap_interval: (!std::env::args().any(|a| a == "--vsync")).then_some(0),
+            ..Default::default()
+        },
         ..Default::default()
     }
 }
@@ -440,6 +451,7 @@ fn common_phrases() -> Vec<String> {
 #[macroquad::main(window_conf)]
 async fn main() {
     log::start();
+    power::full_speed();
     rand::srand(macroquad::miniquad::date::now() as u64);
 
     let players = players::Players::load();
@@ -489,6 +501,8 @@ async fn main() {
     let mut taps = input::TapFilter::default();
     // Frame-time stats for the log (to spot slowdowns): frames, total time, slowest frame.
     let mut stats = (0u32, 0.0f32, 0.0f32);
+    // When the current frame was due to start (for pacing to 60 frames a second).
+    let mut frame_start = get_time();
 
     // Get common phrases ready in the background so they play instantly later.
     ctx.voice.prepare(&common_phrases());
@@ -638,20 +652,48 @@ async fn main() {
         games::fade(&mut ctx.button_pop, ctx.dt, 3.0);
         ctx.confetti.update(ctx.dt);
         ctx.fireworks.update(ctx.dt);
+        // Time each part of the frame, to find what makes a slow one slow.
+        let t0 = std::time::Instant::now();
         log::step("voice");
         ctx.voice.update().await;
+        let t_voice = t0.elapsed();
 
         log::step("game logic");
         app.update(&mut ctx);
+        let t_logic = t0.elapsed();
         log::step("drawing");
         app.draw(&ctx);
+        let t_draw = t0.elapsed();
 
         if snapshot_done(ctx.time) {
             break;
         }
         log::step("showing the frame");
         next_frame().await;
+        // Wait out the rest of this frame's 1/60 s, so we don't draw hundreds of frames a
+        // second for nothing (and run the battery down).
+        frame_start += FRAME_SECS;
+        let now = get_time();
+        if frame_start > now {
+            std::thread::sleep(std::time::Duration::from_secs_f64(frame_start - now));
+        } else if now - frame_start > FRAME_SECS {
+            frame_start = now; // fell behind (a slow frame): start counting again from now
+        }
         log::frame_done();
+        let t_show = t0.elapsed();
+        if t_show.as_millis() >= 40 {
+            let ms = |d: std::time::Duration| d.as_secs_f32() * 1000.0;
+            log::line(&format!(
+                "slow frame {:.0} ms: voice {:.0}, logic {:.0}, drawing {:.0}, showing {:.0} ({} sparks) on {:?}",
+                ms(t_show),
+                ms(t_voice),
+                ms(t_logic - t_voice),
+                ms(t_draw - t_logic),
+                ms(t_show - t_draw),
+                ctx.fireworks.sparks(),
+                app.screen
+            ));
+        }
 
         let ft = get_frame_time();
         stats = (stats.0 + 1, stats.1 + ft, stats.2.max(ft));

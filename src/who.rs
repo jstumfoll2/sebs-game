@@ -189,7 +189,7 @@ impl Picker {
             let pulse = art::scale_rect(v, 1.0 + 0.03 * (ctx.time * 3.0).sin());
             art::card(pulse, Paint::Purple.color());
             art::people_icon(vec2(pulse.x + pulse.h * 0.5, pulse.center().y), pulse.h * 0.42);
-            art::text_left(font, "2 Players", pulse.x + pulse.h * 0.95, pulse.center().y, pulse.h * 0.42, WHITE);
+            art::text_left(font, "2 Players", pulse.x + pulse.h * 0.95, pulse.center().y, v.h * 0.42, WHITE);
         }
 
         // The "Voice" button: a speaker and the word.
@@ -344,10 +344,10 @@ impl NameEntry {
         art::card(box_r, WHITE);
         let shown = tidy_name(&self.text);
         let size = box_r.h * 0.65;
-        let total: f32 = shown.chars().map(|c| measure_text(&c.to_string(), font, size as u16, 1.0).width).sum();
+        let total: f32 = shown.chars().map(|c| art::measure(font, &c.to_string(), size).width).sum();
         let mut x = box_r.center().x - total / 2.0;
         for (i, c) in shown.chars().enumerate() {
-            let cw = measure_text(&c.to_string(), font, size as u16, 1.0).width;
+            let cw = art::measure(font, &c.to_string(), size).width;
             let color = art::readable(Paint::ALL[i % Paint::ALL.len()].color());
             art::text_center(font, &c.to_string(), vec2(x + cw / 2.0, box_r.center().y), size, color);
             x += cw;

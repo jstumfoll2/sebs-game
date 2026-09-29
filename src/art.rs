@@ -412,21 +412,42 @@ pub fn load_font() -> Option<Font> {
         .find_map(|bytes| load_ttf_font_from_bytes(&bytes).ok())
 }
 
+/// The font has to draw every letter again for each new text size, which is slow (a
+/// tenth of a second for a big title). Text that grows or pulses would do that every
+/// frame. So text is only ever drawn at a few sizes, 10% apart, and stretched a little
+/// to the exact size. Returns (size to draw at, how much to stretch it).
+fn font_size(size: f32) -> (u16, f32) {
+    let size = size.max(1.0);
+    let step = (size.ln() / 1.1f32.ln()).round();
+    let fs = 1.1f32.powf(step).round().max(1.0);
+    (fs as u16, size / fs)
+}
+
+/// How big this text will be at `size` (use this instead of macroquad's `measure_text`).
+pub fn measure(font: Option<&Font>, text: &str, size: f32) -> TextDimensions {
+    let (fs, scale) = font_size(size);
+    measure_text(text, font, fs, scale)
+}
+
+/// Draw text with its baseline at (x, y).
+pub fn text_at(font: Option<&Font>, text: &str, x: f32, y: f32, size: f32, color: Color) {
+    let (font_size, font_scale) = font_size(size);
+    draw_text_ex(text, x, y, TextParams { font, font_size, font_scale, color, ..Default::default() });
+}
+
 /// Draw text centered on a point.
 pub fn text_center(font: Option<&Font>, text: &str, c: Vec2, size: f32, color: Color) {
-    let fs = size.max(1.0) as u16;
-    let d = measure_text(text, font, fs, 1.0);
-    draw_text_ex(
-        text,
-        c.x - d.width / 2.0,
-        c.y + d.offset_y / 2.0,
-        TextParams {
-            font,
-            font_size: fs,
-            color,
-            ..Default::default()
-        },
-    );
+    text_center_zoomed(font, text, c, size, 1.0, color);
+}
+
+/// Text that grows, shrinks or pulses: the letters are drawn once at `size`, then stretched
+/// by `zoom`, so animating `zoom` costs nothing.
+pub fn text_center_zoomed(font: Option<&Font>, text: &str, c: Vec2, size: f32, zoom: f32, color: Color) {
+    let (font_size, stretch) = font_size(size);
+    let font_scale = stretch * zoom.max(0.01);
+    let d = measure_text(text, font, font_size, font_scale);
+    let (x, y) = (c.x - d.width / 2.0, c.y + d.offset_y / 2.0);
+    draw_text_ex(text, x, y, TextParams { font, font_size, font_scale, color, ..Default::default() });
 }
 
 /// A word label like "BALL", in capitals to match the Letters game, with the first letter
@@ -448,20 +469,18 @@ pub fn word_label(
     let first = first.to_string();
     let rest: String = chars.collect();
 
-    let measure = |size: f32| {
-        let w_first = measure_text(&first, font, (size * 1.35) as u16, 1.0).width;
-        let w_rest = measure_text(&rest, font, size as u16, 1.0).width;
+    let widths = |size: f32| {
+        let w_first = measure(font, &first, size * 1.35).width;
+        let w_rest = measure(font, &rest, size).width;
         (w_first, w_rest, size * 0.06)
     };
-    let (w_first, w_rest, gap) = measure(size);
+    let (w_first, w_rest, gap) = widths(size);
     let size = if w_first + gap + w_rest > max_w {
         size * max_w / (w_first + gap + w_rest)
     } else {
         size
     };
-    let (w_first, w_rest, gap) = measure(size);
-    let big = (size * 1.35) as u16;
-    let small = size as u16;
+    let (w_first, w_rest, gap) = widths(size);
     let total = w_first + gap + w_rest;
     let x = c.x - total / 2.0;
     let baseline = c.y + size * 0.36;
@@ -474,26 +493,14 @@ pub fn word_label(
             bg,
         );
     }
-    let params = |font_size, color| TextParams { font, font_size, color, ..Default::default() };
-    draw_text_ex(&first, x, baseline, params(big, first_color));
-    draw_text_ex(&rest, x + w_first + gap, baseline, params(small, INK));
+    text_at(font, &first, x, baseline, size * 1.35, first_color);
+    text_at(font, &rest, x + w_first + gap, baseline, size, INK);
 }
 
 /// Draw text starting at `x`, vertically centered on `cy`.
 pub fn text_left(font: Option<&Font>, text: &str, x: f32, cy: f32, size: f32, color: Color) {
-    let fs = size.max(1.0) as u16;
-    let d = measure_text(text, font, fs, 1.0);
-    draw_text_ex(
-        text,
-        x,
-        cy + d.offset_y / 2.0,
-        TextParams {
-            font,
-            font_size: fs,
-            color,
-            ..Default::default()
-        },
-    );
+    let d = measure(font, text, size);
+    text_at(font, text, x, cy + d.offset_y / 2.0, size, color);
 }
 
 // ---------- background ----------

@@ -1,6 +1,7 @@
-# Sebastian's Game
+# Star Catchers
 
-A touch-screen learning game for a 4-year-old, written in Rust with [macroquad](https://macroquad.rs).
+A touch-screen learning game for a 4-year-old (made for Sebastian): every right answer catches a star.
+It's written in Rust with [macroquad](https://macroquad.rs).
 Everything is drawn with code and all sound effects are synthesized. The voice is
 [Piper](https://github.com/rhasspy/piper), a natural-sounding text-to-speech engine that runs offline.
 
@@ -63,7 +64,7 @@ Everything is drawn with code and all sound effects are synthesized. The voice i
 The first time the game opens it asks for a name (a grown-up types it on the big on-screen
 keyboard or the laptop keyboard). Add more kids from the **"Who's playing?"** screen (the
 people button, top-left on the home screen). Each kid keeps their own stars and levels, saved in
-`%APPDATA%\sebastians-game\players.json` (you can edit it by hand, e.g. to fix a name).
+`%APPDATA%\star-catchers\players.json` (you can edit it by hand, e.g. to fix a name).
 
 **Two players:** tap **2 Players** on "Who's playing?", pick two kids and a goal (first to 5, 10,
 15 or 20 stars). Turns switch after every star; both scores show in the top-right corner, and the
@@ -112,9 +113,12 @@ To remove a player, tap **Edit** (bottom-right of "Who's playing?"), then the re
 - `--players test.json` uses a different players file (so testing doesn't touch the real one).
 - `--snapshot out.png` saves a screenshot after 2.5 s (`--snapshot-after 5` to change) and quits.
 - `cargo test` runs the unit tests.
-- Every run writes `sebastians-game.log` (taps, the voice, frame speed every 5 s, crashes, and
-  freezes with where they happened); the run before is kept as `sebastians-game.prev.log`. `--no-log` turns it off.
+- Every run writes `star-catchers.log` (taps, the voice, frame speed every 5 s, crashes, and
+  freezes with where they happened); the run before is kept as `star-catchers.prev.log`. `--no-log` turns it off.
 - `--fake-paint` makes the Drawing game paint by itself (a stress test).
+- `--vsync` waits for the screen's refresh instead of pacing frames itself (the old way; on battery
+  Windows can make that wait long enough to drop the game to 20 fps). Slow frames (over 40 ms) are
+  logged with a breakdown of where the time went.
 
 ## Code tour (for learning Rust)
 
@@ -127,3 +131,4 @@ To remove a player, tap **Edit** (bottom-right of "Who's playing?"), then the re
   talks back over **channels**
 - `src/wav.rs`, `src/sfx.rs`: reading and writing WAV files byte by byte
 - `src/input.rs`: turns touch or mouse into one "finger"; calls Windows directly through **FFI**
+- `src/power.rs`: asks Windows not to slow the game down on battery (more **FFI**)

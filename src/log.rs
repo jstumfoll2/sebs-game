@@ -1,6 +1,6 @@
 //! A simple debug log: what happens (taps, what the voice is doing) goes to
-//! `sebastians-game.log` in the folder you ran the game from. The previous run's log is kept
-//! as `sebastians-game.prev.log` (handy after a crash). Start with `--no-log` to turn it off.
+//! `star-catchers.log` in the folder you ran the game from. The previous run's log is kept
+//! as `star-catchers.prev.log` (handy after a crash). Start with `--no-log` to turn it off.
 //!
 //! It also watches for trouble:
 //! - if the game crashes with an error message, the message is written to the log;
@@ -32,8 +32,8 @@ fn file() -> &'static Option<Mutex<File>> {
         if std::env::args().any(|a| a == "--no-log") {
             return None;
         }
-        let _ = std::fs::rename("sebastians-game.log", "sebastians-game.prev.log");
-        File::create("sebastians-game.log").ok().map(Mutex::new)
+        let _ = std::fs::rename("star-catchers.log", "star-catchers.prev.log");
+        File::create("star-catchers.log").ok().map(Mutex::new)
     })
 }
 

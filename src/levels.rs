@@ -51,7 +51,7 @@ pub fn draw(game: &dyn MiniGame, name: &str, ctx: &Ctx) {
         // ...and what the level means underneath ("3 colors", "5-10"), shrunk to fit.
         let caption = game.level_label(level);
         let mut size = r.h * 0.13;
-        let width = measure_text(&caption, font, size as u16, 1.0).width;
+        let width = art::measure(font, &caption, size).width;
         if width > r.w * 0.9 {
             size *= r.w * 0.9 / width;
         }

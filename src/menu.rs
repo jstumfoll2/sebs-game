@@ -150,7 +150,7 @@ fn title_layout(font: Option<&Font>, title: &str, room: f32) -> (f32, Vec<(char,
                 if ch == ' ' {
                     size * 0.35
                 } else {
-                    measure_text(&ch.to_string(), font, size as u16, 1.0).width + size * 0.04
+                    art::measure(font, &ch.to_string(), size).width + size * 0.04
                 }
             })
             .collect()

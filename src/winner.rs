@@ -74,7 +74,7 @@ impl Winner {
                 // The lesson: which number is bigger?
                 let cmp = format!("{winner_stars}  >  {other_stars}");
                 let pulse = 1.0 + 0.05 * (ctx.time * 4.0).sin();
-                art::text_center(font, &cmp, vec2(w / 2.0, h * 0.76), h * 0.12 * pulse, art::GOLD);
+                art::text_center_zoomed(font, &cmp, vec2(w / 2.0, h * 0.76), h * 0.12, pulse, art::GOLD);
                 let words = format!("{winner_stars} is more than {other_stars}!");
                 art::text_center(font, &words, vec2(w / 2.0, h * 0.86), h * 0.055, WHITE);
             }
@@ -137,7 +137,7 @@ fn draw_player_row(ctx: &Ctx, name: &str, stars: u32, color: usize, crowned: boo
 /// Big bouncing rainbow letters.
 fn rainbow_title(ctx: &Ctx, text: &str, c: Vec2, size: f32) {
     let font = ctx.font();
-    let widths: Vec<f32> = text.chars().map(|ch| measure_text(&ch.to_string(), font, size as u16, 1.0).width).collect();
+    let widths: Vec<f32> = text.chars().map(|ch| art::measure(font, &ch.to_string(), size).width).collect();
     let total: f32 = widths.iter().sum();
     let mut x = c.x - total / 2.0;
     for (i, (ch, cw)) in text.chars().zip(&widths).enumerate() {
