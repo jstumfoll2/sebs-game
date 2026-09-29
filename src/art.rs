@@ -412,14 +412,16 @@ pub fn load_font() -> Option<Font> {
         .find_map(|bytes| load_ttf_font_from_bytes(&bytes).ok())
 }
 
-/// The font has to draw every letter again for each new text size, which is slow (a
-/// tenth of a second for a big title). Text that grows or pulses would do that every
-/// frame. So text is only ever drawn at a few sizes, 10% apart, and stretched a little
-/// to the exact size. Returns (size to draw at, how much to stretch it).
+/// The font has to draw every letter again for each new text size, which is slow, and keeps
+/// every one in a texture that grows (and gets copied) as it fills up. Text that grows or
+/// pulses would add new sizes every frame, and each screen's own sizes cause a stutter the
+/// first time it's shown. So text is only ever drawn at a few sizes, 20% apart, rounding up
+/// and shrinking to the exact size (shrinking keeps it sharp). Returns (size to draw at,
+/// how much to shrink it).
 fn font_size(size: f32) -> (u16, f32) {
+    const STEP: f32 = 1.2;
     let size = size.max(1.0);
-    let step = (size.ln() / 1.1f32.ln()).round();
-    let fs = 1.1f32.powf(step).round().max(1.0);
+    let fs = STEP.powf((size.ln() / STEP.ln()).ceil()).round().max(1.0);
     (fs as u16, size / fs)
 }
 

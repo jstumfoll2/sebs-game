@@ -154,6 +154,14 @@ impl PiperVoice {
             self.queue.clear();
         }
         self.queue.extend(parse(text).into_iter().map(job_for));
+        // Ask for it right away, so it gets made before anything that was only `prepare`d.
+        self.request_upcoming();
+    }
+
+    /// Is the voice waiting for a clip to be made before it can say the next thing?
+    pub fn waiting(&self) -> bool {
+        get_time() >= self.playing_until
+            && self.queue.front().is_some_and(|j| !self.loaded.contains_key(&j.name) && !self.broken.contains(&j.name))
     }
 
     pub fn set_muted(&mut self, muted: bool) {
@@ -192,16 +200,7 @@ impl PiperVoice {
             }
         }
 
-        // Make sure the next few clips are on their way.
-        let upcoming: Vec<Job> = self
-            .queue
-            .iter()
-            .take(4)
-            .map(|j| Job { name: j.name.clone(), text: j.text.clone(), phonetic: j.phonetic })
-            .collect();
-        for job in upcoming {
-            self.request(job);
-        }
+        self.request_upcoming();
 
         // When the current clip ends, play the next one (if it's ready).
         if get_time() >= self.playing_until {
@@ -221,6 +220,19 @@ impl PiperVoice {
                 }
                 break;
             }
+        }
+    }
+
+    /// Make sure the next few clips in the queue are on their way.
+    fn request_upcoming(&mut self) {
+        let upcoming: Vec<Job> = self
+            .queue
+            .iter()
+            .take(4)
+            .map(|j| Job { name: j.name.clone(), text: j.text.clone(), phonetic: j.phonetic })
+            .collect();
+        for job in upcoming {
+            self.request(job);
         }
     }
 

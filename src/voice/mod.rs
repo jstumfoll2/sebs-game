@@ -74,12 +74,13 @@ pub fn installed() -> Vec<String> {
     piper::installed()
 }
 
-/// A friendly name for a voice: "en_US-amy-medium" -> "Amy", "en_US-hfc_female-medium" -> "HFC".
+/// A friendly name for a voice: "en_US-amy-medium" -> "Amy", "en_US-hfc_female-medium" -> "Holly".
+/// (Some voices are named after the recording they were made from, so they get a real name here.)
 pub fn display_name(model: &str) -> String {
     let name = model.split('-').nth(1).unwrap_or(model);
     match name {
         "ljspeech" => "LJ".to_string(),
-        "hfc_female" => "HFC".to_string(),
+        "hfc_female" => "Holly".to_string(),
         other => crate::alphabet::capitalize(other),
     }
 }
@@ -128,6 +129,15 @@ impl Voice {
         match self {
             Voice::Piper(p) => p.set_muted(muted),
             Voice::Sapi(s) => s.set_muted(muted),
+        }
+    }
+
+    /// Is the voice waiting for Piper to make something before it can speak? (The first time
+    /// a voice is used, Piper takes a few seconds to start.)
+    pub fn waiting(&self) -> bool {
+        match self {
+            Voice::Piper(p) => p.waiting(),
+            Voice::Sapi(_) => false,
         }
     }
 

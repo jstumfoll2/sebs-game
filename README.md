@@ -21,7 +21,7 @@ Everything is drawn with code and all sound effects are synthesized. The voice i
 ## Setup
 
 1. Install Rust: <https://rustup.rs> (on Windows you also need the Visual Studio C++ Build Tools).
-2. Download Piper and five voices (Lessac, Amy, Kristin, HFC and LJ; about 350 MB, kept out of git):
+2. Download Piper and five voices (Lessac, Amy, Kristin, Holly and LJ; about 350 MB, kept out of git):
 
    ```bash
    powershell -ExecutionPolicy Bypass -File scripts\get-voice.ps1
@@ -38,13 +38,13 @@ Everything is drawn with code and all sound effects are synthesized. The voice i
 
 | Game | What it teaches | Levels |
 |------|-----------------|--------|
-| **Colors** | Lots of objects in different colors: drag each one into the bucket with the same color. Tapping an object or bucket says its name. | 2 colors / 4 things → 6 colors / 8 things |
-| **Patterns** | Find the missing piece and drag it into the "?". Rows (red, blue, red, blue…), big/small and turning arrows, a necklace of beads, a checkerboard grid, and growing patterns (1, 2, 3, 4…). Tapping any card says its name. | AB colors → ABC → big/small & arrows → necklace → grid → growing |
-| **Shadows** | Drag each colorful picture onto its dark shadow. | 2 → 5 shadows |
-| **Puzzles** | Drag picture pieces onto the board; they snap into place. Early levels show a faint guide. | 2 → 12 pieces |
-| **Letters** | A picture clue ("ball") and the letter's sound: "Find the letter bee! Buh, buh, ball!" Drag the letter onto the picture; tapping a letter or the picture says its name and sound. | 5 → 26 letters |
+| **Colors** | Lots of objects in different colors: drag each one into the bucket with the same color. Tapping an object or bucket says its name. | 2 colors / 4 things â†’ 6 colors / 8 things |
+| **Patterns** | Find the missing piece and drag it into the "?". Rows (red, blue, red, blueâ€¦), big/small and turning arrows, a necklace of beads, a checkerboard grid, and growing patterns (1, 2, 3, 4â€¦). Tapping any card says its name. | AB colors â†’ ABC â†’ big/small & arrows â†’ necklace â†’ grid â†’ growing |
+| **Shadows** | Drag each colorful picture onto its dark shadow. | 2 â†’ 5 shadows |
+| **Puzzles** | Drag picture pieces onto the board; they snap into place. Early levels show a faint guide. | 2 â†’ 12 pieces |
+| **Letters** | A picture clue ("ball") and the letter's sound: "Find the letter bee! Buh, buh, ball!" Drag the letter onto the picture; tapping a letter or the picture says its name and sound. | 5 â†’ 26 letters |
 | **Spelling** | A picture and its word ("Let's spell cat! C, A, T"); type it on the big keyboard. Each letter is said as it's typed; a wrong spelling is read back, then try again. "Say it" reads out whatever's typed. | 3, 4, 5, longer letters; with or without guide letters |
-| **Counting** | Tap each object to count it, then pick how many. Includes zero ("zero means none!"). | 0–3, 0–5, 4–7, 5–10, 7–10, 10–15, 11–20 |
+| **Counting** | Tap each object to count it, then pick how many. Includes zero ("zero means none!"). | 0â€“3, 0â€“5, 4â€“7, 5â€“10, 7â€“10, 10â€“15, 11â€“20 |
 | **Groups** | Early multiplication: tap each plate to count by 2s, 3s, 5s or 10s ("two, four, six"), then pick how many altogether. | 2s, 2s+, 5s, 10s, 3s, mixed |
 | **Drawing** | Paint with your finger: 10 colors, small/medium/big/rainbow brushes, eraser. Pick a blank page or a shape or picture outline to color in. | (no levels or stars) |
 
@@ -85,7 +85,7 @@ To remove a player, tap **Edit** (bottom-right of "Who's playing?"), then the re
 
 ## Grown-up controls
 
-- `Esc` quits. `↑` / `↓` change the level of the current game.
+- `Esc` quits. `â†‘` / `â†“` change the level of the current game.
 - `cargo run -- --windowed` runs in a window instead of fullscreen.
 
 ## Customizing
@@ -104,7 +104,7 @@ To remove a player, tap **Edit** (bottom-right of "Who's playing?"), then the re
 - `--levels 0` opens game 0's level picker.
 - `--versus 0:1:10` starts a match between players 0 and 1 (first to 10); `--demo-win` shows
   the winner screen; `--banner` shows the "level done" banner.
-- `--voices` opens the voice menu.
+- `--voices` opens the voice menu; `--voices holly` also picks Holly.
 - `--pick 0` picks player 0; `--edit-players` opens the remove-a-player mode.
 - `--things` shows every object and shape; `--solve` fills in the puzzle; `--page 8` opens a coloring page.
 - `--start 3:5` jumps straight into game 3 (Counting) at level 5. Games count from 0

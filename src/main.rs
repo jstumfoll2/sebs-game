@@ -216,6 +216,23 @@ impl App {
         self.screen = Screen::Menu;
     }
 
+    /// Switch to this voice (and save the choice), and let it say hello.
+    fn choose_voice(&mut self, model: &str, ctx: &mut Ctx) {
+        let name = voice::display_name(model);
+        let hello = format!("Hi! I'm {name}. Let's play!");
+        if ctx.voice.model() == Some(model) {
+            ctx.voice.say(&hello);
+            return;
+        }
+        ctx.voice = voice::Voice::new(Some(model));
+        ctx.voice.set_muted(ctx.muted);
+        // Say hello first, so it isn't stuck behind all the phrases being made ahead of time.
+        ctx.voice.say(&hello);
+        ctx.voice.prepare(&common_phrases());
+        self.players.voice = Some(model.to_string());
+        self.players.save();
+    }
+
     fn picking_player(&self) -> bool {
         matches!(
             self.screen,
@@ -258,17 +275,7 @@ impl App {
                 who::Pick::Nothing => {}
             },
             Screen::Voices => match self.voice_picker.update(ctx) {
-                voicepick::VoicePick::Choose(model) => {
-                    if ctx.voice.model() != Some(model.as_str()) {
-                        ctx.voice = voice::Voice::new(Some(&model));
-                        ctx.voice.set_muted(ctx.muted);
-                        ctx.voice.prepare(&common_phrases());
-                        self.players.voice = Some(model.clone());
-                        self.players.save();
-                    }
-                    let name = voice::display_name(&model);
-                    ctx.voice.say(&format!("Hi! I'm {name}. Let's play!"));
-                }
+                voicepick::VoicePick::Choose(model) => self.choose_voice(&model, ctx),
                 voicepick::VoicePick::Back => self.show_players(ctx),
                 voicepick::VoicePick::Nothing => {}
             },
@@ -567,10 +574,16 @@ async fn main() {
     if std::env::args().any(|a| a == "--edit-players") {
         app.picker.start_editing();
     }
-    // `--voices` opens the voice menu.
+    // `--voices` opens the voice menu; `--voices amy` also picks Amy (as if tapped).
     if std::env::args().any(|a| a == "--voices") {
         app.voice_picker.start(&mut ctx);
         app.screen = Screen::Voices;
+        let wanted = arg_value("--voices").map(|s| s.to_lowercase());
+        let found = voice::installed().into_iter().find(|m| Some(voice::display_name(m).to_lowercase()) == wanted);
+        if let Some(model) = found {
+            app.voice_picker.chose(ctx.time);
+            app.choose_voice(&model, &mut ctx);
+        }
     }
 
     // `--stars 7` starts with 7 stars; `--show-stars` opens the star panel right away.
