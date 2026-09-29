@@ -18,6 +18,19 @@ Everything is drawn with code and all sound effects are synthesized. The voice i
 | ![Two players](docs/screenshots/versus.png) **Two players** take turns | ![Winner](docs/screenshots/winner.png) **Winner!** "10 is more than 7" |
 | ![Voices](docs/screenshots/voices.png) **Pick a voice** | ![Writing](docs/screenshots/writing.png) **Writing:** green where you're on the line, orange (with a red glow) where you strayed, gold where you missed |
 
+## Download (Windows)
+
+Grab the latest zip from the [Releases page](https://github.com/jstumfoll2/star-catchers/releases):
+
+- **`...-windows-with-voices.zip`**: unzip and double-click `star-catchers.exe`. The natural voice is included.
+- **`...-windows.zip`**: just the game (small). It uses the robotic Windows voice until you run
+  `powershell -ExecutionPolicy Bypass -File scripts\get-voice.ps1` once to download the natural one.
+
+Windows may warn about an unknown app the first time (the exe isn't code-signed): choose
+**More info → Run anyway**. Progress is saved in `%APPDATA%\star-catchers`.
+
+Releases are built by GitHub Actions (`.github/workflows/release.yml`) whenever a tag like `v0.2.0` is pushed.
+
 ## Setup
 
 1. Install Rust: <https://rustup.rs> (on Windows you also need the Visual Studio C++ Build Tools).

@@ -1,0 +1,67 @@
+# Builds the game for Windows and attaches two zips to a GitHub Release.
+#
+# To make a release: bump `version` in Cargo.toml, commit, then
+#
+#   git tag v0.2.0
+#   git push origin v0.2.0
+#
+# Running it by hand from the Actions tab (workflow_dispatch) builds the same zips as a
+# downloadable "artifact" instead, without making a release, which is handy for testing.
+
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write # needed to create the release
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Test
+        run: cargo test --locked
+
+      - name: Build
+        run: cargo build --release --locked
+
+      - name: Package
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $version = $env:GITHUB_REF_NAME -replace '[^A-Za-z0-9._-]', '-'
+          $dir = "star-catchers"
+
+          # 1. Small zip: the game, the README and the script that downloads the voice.
+          New-Item -ItemType Directory "$dir/scripts" | Out-Null
+          Copy-Item target/release/star-catchers.exe $dir
+          Copy-Item README.md $dir
+          Copy-Item scripts/get-voice.ps1 "$dir/scripts"
+          Compress-Archive -Path $dir -DestinationPath "star-catchers-$version-windows.zip"
+
+          # 2. Big zip: the same, plus the Piper voices, ready to play.
+          ./scripts/get-voice.ps1
+          New-Item -ItemType Directory "$dir/assets" | Out-Null
+          Copy-Item assets/piper "$dir/assets/piper" -Recurse
+          Compress-Archive -Path $dir -DestinationPath "star-catchers-$version-windows-with-voices.zip"
+
+      - name: Keep the zips (manual runs)
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: star-catchers-windows
+          path: star-catchers-*.zip
+
+      - name: Publish the release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: star-catchers-*.zip
+          generate_release_notes: true
