@@ -18,6 +18,8 @@ pub enum Pick {
     Remove(usize),
     /// The "2 Players" button: set up a two-player match.
     Versus,
+    /// The "Voice" button: pick who does the talking.
+    Voice,
 }
 
 /// The "Who's playing?" screen. A grown-up can tap "Edit" to remove players.
@@ -59,6 +61,12 @@ fn versus_rect() -> Rect {
 fn edit_rect() -> Rect {
     let (w, h) = (screen_width(), screen_height());
     Rect::new(w - h * 0.2, h - h * 0.11, h * 0.17, h * 0.08)
+}
+
+/// The "Voice" button, just left of "Edit".
+fn voice_rect() -> Rect {
+    let e = edit_rect();
+    Rect::new(e.x - e.w * 1.25, e.y, e.w * 1.1, e.h)
 }
 
 /// The red X on a player's card in edit mode.
@@ -105,6 +113,10 @@ impl Picker {
         if !self.editing && players.players.len() >= 2 && versus_rect().contains(ctx.input.pos) {
             ctx.sfx.pop();
             return Pick::Versus;
+        }
+        if !self.editing && voice_rect().contains(ctx.input.pos) {
+            ctx.sfx.pop();
+            return Pick::Voice;
         }
         if edit_rect().contains(ctx.input.pos) {
             self.editing = !self.editing;
@@ -178,6 +190,14 @@ impl Picker {
             art::card(pulse, Paint::Purple.color());
             art::people_icon(vec2(pulse.x + pulse.h * 0.5, pulse.center().y), pulse.h * 0.42);
             art::text_left(font, "2 Players", pulse.x + pulse.h * 0.95, pulse.center().y, pulse.h * 0.42, WHITE);
+        }
+
+        // The "Voice" button: a speaker and the word.
+        if !self.editing {
+            let v = voice_rect();
+            art::card(v, WHITE);
+            art::speaker_icon(vec2(v.x + v.h * 0.45, v.center().y), v.h * 0.3, art::INK);
+            art::text_left(font, "Voice", v.x + v.h * 0.85, v.center().y, v.h * 0.45, art::INK);
         }
 
         // The grown-up "Edit" / "Done" button.

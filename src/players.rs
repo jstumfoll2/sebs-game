@@ -34,6 +34,9 @@ pub struct Players {
     /// Who played last, so they're picked automatically next time.
     #[serde(default)]
     pub last_player: Option<usize>,
+    /// The voice picked in the voice menu (e.g. "en_US-amy-medium").
+    #[serde(default)]
+    pub voice: Option<String>,
 }
 
 /// Longest name we allow.

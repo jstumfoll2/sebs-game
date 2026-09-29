@@ -1,12 +1,14 @@
 //! The Piper voice: natural-sounding speech made on this computer, no internet needed.
 //!
 //! How it works:
-//! 1. Every phrase becomes a `.wav` clip in `assets/voice-cache/`, named after its words
-//!    (e.g. `where-does-the-red-ball-go.wav`). Clips are saved, so each phrase is only
-//!    made once. You can even replace a clip with your own recording of the same name!
-//! 2. Missing clips are made by Piper on a background *thread*, so the game never freezes.
-//!    Piper runs as two long-lived processes: one reads English text, the other reads
-//!    phonetic symbols (IPA) for letter sounds like "sss" that English spelling can't express.
+//! 1. Every phrase becomes a `.wav` clip in `assets/voice-cache/<voice>/`, named after its
+//!    words (e.g. `pick-a-game.wav`). Clips are saved, so each phrase is only made once.
+//!    You can even replace a clip with your own recording of the same name!
+//! 2. All the slow work happens on a background *thread*, so the game never stutters:
+//!    making missing clips with Piper, then reading and preparing them to play. Piper runs
+//!    as two long-lived processes (at low priority, so drawing always comes first): one
+//!    reads English text, the other reads phonetic symbols (IPA) for letter sounds like
+//!    "sss" that English spelling can't express.
 //! 3. The game plays the clips one after another. Because we know how long each clip is,
 //!    we always know exactly when the voice has finished.
 
@@ -22,7 +24,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 use std::sync::mpsc::{channel, Receiver, Sender};
 
-/// A request for Piper to make one clip.
+/// A request for one clip: made by Piper if it isn't saved yet, then prepared to play.
 struct Job {
     name: String,
     text: String,
@@ -30,13 +32,17 @@ struct Job {
     phonetic: bool,
 }
 
+/// A clip, ready to hand to the sound system: WAV bytes at 44.1 kHz, and its length.
+type Prepared = (Vec<u8>, f32);
+
 pub struct PiperVoice {
-    cache: PathBuf,
+    /// Which voice this is (e.g. "en_US-amy-medium").
+    model: String,
     /// Send jobs to the background thread...
     jobs: Sender<Job>,
-    /// ...and hear back (by clip name) when each one is done.
-    done: Receiver<String>,
-    /// Clips we've asked for but that aren't finished yet.
+    /// ...and hear back with the prepared clip (or None if it couldn't be made).
+    done: Receiver<(String, Option<Prepared>)>,
+    /// Clips we've asked for but that aren't ready yet.
     making: HashSet<String>,
     /// Clips that couldn't be made or loaded (skipped instead of waiting forever).
     broken: HashSet<String>,
@@ -50,56 +56,78 @@ pub struct PiperVoice {
     muted: bool,
 }
 
+/// The installed voices, by name (the files in `assets/piper/voices`).
+pub fn installed() -> Vec<String> {
+    let dir = crate::assets::dir().join("piper").join("voices");
+    let mut names: Vec<String> = std::fs::read_dir(dir)
+        .into_iter()
+        .flatten()
+        .filter_map(|e| e.ok())
+        .filter_map(|e| e.file_name().to_str().map(str::to_string))
+        .filter_map(|f| f.strip_suffix(".onnx").map(str::to_string))
+        .collect();
+    names.sort();
+    names
+}
+
 impl PiperVoice {
-    /// Returns None if Piper isn't installed, so the caller can fall back to Windows speech.
-    pub fn start() -> Option<Self> {
+    /// Start the voice called `model` (e.g. "en_US-amy-medium").
+    /// Returns None if it isn't installed, so the caller can pick another or fall back.
+    pub fn start(model: &str) -> Option<Self> {
         let assets = crate::assets::dir();
         let piper = assets.join("piper");
         let exe = piper.join("piper").join(exe_name());
-        let model = piper.join("voice.onnx");
-        let config = piper.join("voice.onnx.json");
-        if !exe.exists() || !model.exists() || !config.exists() {
+        let model_file = piper.join("voices").join(format!("{model}.onnx"));
+        let config = piper.join("voices").join(format!("{model}.onnx.json"));
+        if !exe.exists() || !model_file.exists() || !config.exists() {
             return None;
         }
-        let cache = assets.join("voice-cache");
-        std::fs::create_dir_all(cache.join("tmp")).ok()?;
+        // Each voice keeps its own clips, so switching voices doesn't mix them up.
+        let cache = assets.join("voice-cache").join(model);
+        let tmp = cache.join("tmp");
+        std::fs::create_dir_all(&tmp).ok()?;
 
         // Piper normally turns English into sounds itself. A copy of the voice settings with
         // `phoneme_type` set to "text" makes it take phonetic symbols directly instead.
-        let phonetic_config = piper.join("voice-phonetic.onnx.json");
+        let phonetic_config = cache.join("phonetic.onnx.json");
         let settings = std::fs::read_to_string(&config).ok()?;
         let phonetic = settings.replacen("\"phoneme_type\": \"espeak\"", "\"phoneme_type\": \"text\"", 1);
         std::fs::write(&phonetic_config, phonetic).ok()?;
 
         let (jobs, job_rx) = channel::<Job>();
-        let (done_tx, done) = channel::<String>();
-        let tmp = cache.join("tmp");
-        let cache_dir = cache.clone();
+        let (done_tx, done) = channel::<(String, Option<Prepared>)>();
         // `move` gives the thread its own copies of these values.
         std::thread::spawn(move || {
-            let mut english = Piper::spawn(&exe, &model, &config, &tmp);
-            let mut phonetic = Piper::spawn(&exe, &model, &phonetic_config, &tmp);
+            // Piper starts on first use, so a voice that's never used costs nothing.
+            let mut english: Option<Piper> = None;
+            let mut phonetic: Option<Piper> = None;
             for job in job_rx {
-                let piper = if job.phonetic { &mut phonetic } else { &mut english };
-                if let Some(made) = piper.as_mut().and_then(|p| p.make(&job.text)) {
-                    // Piper reports the file a moment before it closes it, and Windows
-                    // won't move an open file, so try a few times.
-                    let target = cache_dir.join(format!("{}.wav", job.name));
-                    for _ in 0..50 {
-                        if std::fs::rename(&made, &target).is_ok() {
-                            break;
+                let target = cache.join(format!("{}.wav", job.name));
+                if !target.exists() {
+                    let slot = if job.phonetic { &mut phonetic } else { &mut english };
+                    if slot.is_none() {
+                        let cfg = if job.phonetic { &phonetic_config } else { &config };
+                        *slot = Piper::spawn(&exe, &model_file, cfg, &tmp);
+                    }
+                    if let Some(made) = slot.as_mut().and_then(|p| p.make(&job.text)) {
+                        // Piper reports the file a moment before it closes it, and Windows
+                        // won't move an open file, so try a few times.
+                        for _ in 0..50 {
+                            if std::fs::rename(&made, &target).is_ok() {
+                                break;
+                            }
+                            std::thread::sleep(std::time::Duration::from_millis(20));
                         }
-                        std::thread::sleep(std::time::Duration::from_millis(20));
                     }
                 }
-                if done_tx.send(job.name).is_err() {
-                    break; // the game has closed
+                if done_tx.send((job.name, prepare(&target))).is_err() {
+                    break; // the game has closed (or switched voices)
                 }
             }
         });
 
         Some(PiperVoice {
-            cache,
+            model: model.to_string(),
             jobs,
             done,
             making: HashSet::new(),
@@ -110,6 +138,10 @@ impl PiperVoice {
             playing_until: 0.0,
             muted: false,
         })
+    }
+
+    pub fn model(&self) -> &str {
+        &self.model
     }
 
     pub fn speak(&mut self, text: &str, interrupt: bool) {
@@ -135,7 +167,7 @@ impl PiperVoice {
         !self.queue.is_empty() || get_time() < self.playing_until
     }
 
-    /// Start making clips for this text now, without saying it.
+    /// Start getting clips for this text ready now, without saying it.
     pub fn prepare(&mut self, text: &str) {
         for job in parse(text).into_iter().map(job_for) {
             self.request(job);
@@ -143,30 +175,32 @@ impl PiperVoice {
     }
 
     pub async fn update(&mut self) {
-        // Hear back from the background thread.
-        while let Ok(name) = self.done.try_recv() {
+        // Hear back from the background thread: hand ready clips to the sound system.
+        while let Ok((name, prepared)) = self.done.try_recv() {
             self.making.remove(&name);
-            if !self.clip_path(&name).exists() {
-                self.broken.insert(name);
+            let sound = match &prepared {
+                Some((bytes, _)) => load_sound_from_bytes(bytes).await.ok(),
+                None => None,
+            };
+            match (sound, prepared) {
+                (Some(sound), Some((_, secs))) => {
+                    self.loaded.insert(name, (sound, secs));
+                }
+                _ => {
+                    self.broken.insert(name);
+                }
             }
         }
 
-        // Make sure the next few clips are loaded, or being made.
-        let upcoming: Vec<(String, String, bool)> = self
+        // Make sure the next few clips are on their way.
+        let upcoming: Vec<Job> = self
             .queue
             .iter()
             .take(4)
-            .map(|j| (j.name.clone(), j.text.clone(), j.phonetic))
+            .map(|j| Job { name: j.name.clone(), text: j.text.clone(), phonetic: j.phonetic })
             .collect();
-        for (name, text, phonetic) in upcoming {
-            if self.loaded.contains_key(&name) || self.broken.contains(&name) {
-                continue;
-            }
-            if self.clip_path(&name).exists() {
-                self.load(&name).await;
-            } else {
-                self.request(Job { name, text, phonetic });
-            }
+        for job in upcoming {
+            self.request(job);
         }
 
         // When the current clip ends, play the next one (if it's ready).
@@ -190,40 +224,21 @@ impl PiperVoice {
         }
     }
 
+    /// Ask the background thread for a clip (unless it's ready, coming, or broken).
     fn request(&mut self, job: Job) {
-        let exists = self.clip_path(&job.name).exists();
-        if !exists && !self.making.contains(&job.name) && !self.broken.contains(&job.name) {
+        let known = self.loaded.contains_key(&job.name) || self.broken.contains(&job.name);
+        if !known && !self.making.contains(&job.name) {
             self.making.insert(job.name.clone());
             let _ = self.jobs.send(job);
         }
     }
+}
 
-    async fn load(&mut self, name: &str) {
-        // Convert to 44.1 kHz (what the sound system plays) with smooth resampling.
-        let prepared = std::fs::read(self.clip_path(name))
-            .ok()
-            .and_then(|bytes| wav::decode(&bytes))
-            .map(|audio| {
-                let audio = audio.resample(44_100);
-                (wav::encode(&audio), audio.seconds())
-            });
-        let sound = match &prepared {
-            Some((bytes, _)) => load_sound_from_bytes(bytes).await.ok(),
-            None => None,
-        };
-        match (sound, prepared) {
-            (Some(sound), Some((_, secs))) => {
-                self.loaded.insert(name.to_string(), (sound, secs));
-            }
-            _ => {
-                self.broken.insert(name.to_string());
-            }
-        }
-    }
-
-    fn clip_path(&self, name: &str) -> PathBuf {
-        self.cache.join(format!("{name}.wav"))
-    }
+/// Read a saved clip and convert it to 44.1 kHz (what the sound system plays), with smooth
+/// resampling. Runs on the background thread.
+fn prepare(path: &Path) -> Option<Prepared> {
+    let audio = wav::decode(&std::fs::read(path).ok()?)?.resample(44_100);
+    Some((wav::encode(&audio), audio.seconds()))
 }
 
 /// Turn a piece of speech into a clip request with a readable file name.
@@ -298,7 +313,10 @@ impl Piper {
         #[cfg(windows)]
         {
             use std::os::windows::process::CommandExt;
-            cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
+            // No console window, and below-normal priority so the game's drawing always goes first.
+            const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+            const BELOW_NORMAL_PRIORITY_CLASS: u32 = 0x0000_4000;
+            cmd.creation_flags(CREATE_NO_WINDOW | BELOW_NORMAL_PRIORITY_CLASS);
         }
         let mut child = cmd.spawn().ok()?;
         let stdin = child.stdin.take()?;

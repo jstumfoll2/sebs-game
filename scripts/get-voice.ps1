@@ -1,20 +1,30 @@
-# Downloads the Piper text-to-speech program and a voice into assets/piper/.
+# Downloads the Piper text-to-speech program and the voices into assets/piper/.
 # These files are big, so they aren't stored in git. Run this once after cloning:
 #
 #   powershell -ExecutionPolicy Bypass -File scripts\get-voice.ps1
 #
-# Try a different voice (listen to samples at https://rhasspy.github.io/piper-samples/):
+# Add other voices by name (listen to samples at https://rhasspy.github.io/piper-samples/):
 #
-#   powershell -ExecutionPolicy Bypass -File scripts\get-voice.ps1 -Voice en_US-amy-medium
+#   powershell -ExecutionPolicy Bypass -File scripts\get-voice.ps1 -Voices en_US-ryan-medium
+#
+# The game's voice menu (the "Voice" button on "Who's playing?") lists every voice in
+# assets/piper/voices.
 
 param(
-    [string]$Voice = "en_US-lessac-medium"
+    [string[]]$Voices = @(
+        "en_US-lessac-medium",
+        "en_US-amy-medium",
+        "en_US-kristin-medium",
+        "en_US-hfc_female-medium",
+        "en_US-ljspeech-high"
+    )
 )
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue" # makes Invoke-WebRequest much faster
 
 $root = Join-Path $PSScriptRoot "..\assets\piper"
-New-Item -ItemType Directory -Force $root | Out-Null
+$voiceDir = Join-Path $root "voices"
+New-Item -ItemType Directory -Force $voiceDir | Out-Null
 
 # 1. The Piper program.
 if (-not (Test-Path "$root\piper\piper.exe")) {
@@ -25,17 +35,22 @@ if (-not (Test-Path "$root\piper\piper.exe")) {
     Remove-Item $zip
 }
 
-# 2. The voice (a model file plus its settings file).
-$lang, $name, $quality = $Voice -split "-"
-$base = "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/$($lang.Split('_')[0])/$lang/$name/$quality/$Voice"
-foreach ($ext in @(".onnx", ".onnx.json")) {
-    if (-not (Test-Path "$root\voice$ext")) {
-        Write-Host "Downloading voice $Voice$ext..."
-        Invoke-WebRequest "$base$ext" -OutFile "$root\voice$ext"
+# An older setup kept a single voice as assets/piper/voice.onnx: move it into voices/.
+if ((Test-Path "$root\voice.onnx") -and -not (Test-Path "$voiceDir\en_US-lessac-medium.onnx")) {
+    Move-Item "$root\voice.onnx" "$voiceDir\en_US-lessac-medium.onnx"
+    Move-Item "$root\voice.onnx.json" "$voiceDir\en_US-lessac-medium.onnx.json"
+}
+
+# 2. The voices (each is a model file plus its settings file).
+foreach ($voice in $Voices) {
+    $lang, $name, $quality = $voice -split "-"
+    $base = "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/$($lang.Split('_')[0])/$lang/$name/$quality/$voice"
+    foreach ($ext in @(".onnx", ".onnx.json")) {
+        if (-not (Test-Path "$voiceDir\$voice$ext")) {
+            Write-Host "Downloading voice $voice$ext..."
+            Invoke-WebRequest "$base$ext" -OutFile "$voiceDir\$voice$ext"
+        }
     }
 }
 
-# Clear clips made with a previous voice so everything uses the new one.
-Remove-Item -Recurse -Force (Join-Path $PSScriptRoot "..\assets\voice-cache") -ErrorAction SilentlyContinue
-
-Write-Host "Done! Voice installed in assets\piper."
+Write-Host "Done! Voices installed in assets\piper\voices."

@@ -66,11 +66,44 @@ pub enum Voice {
     Sapi(sapi::SapiVoice),
 }
 
+/// The voice used when none has been picked yet.
+pub const DEFAULT_VOICE: &str = "en_US-lessac-medium";
+
+/// The Piper voices installed on this computer (e.g. "en_US-amy-medium").
+pub fn installed() -> Vec<String> {
+    piper::installed()
+}
+
+/// A friendly name for a voice: "en_US-amy-medium" -> "Amy", "en_US-hfc_female-medium" -> "HFC".
+pub fn display_name(model: &str) -> String {
+    let name = model.split('-').nth(1).unwrap_or(model);
+    match name {
+        "ljspeech" => "LJ".to_string(),
+        "hfc_female" => "HFC".to_string(),
+        other => crate::alphabet::capitalize(other),
+    }
+}
+
 impl Voice {
-    pub fn new() -> Self {
-        match piper::PiperVoice::start() {
-            Some(p) => Voice::Piper(p),
-            None => Voice::Sapi(sapi::SapiVoice::new()),
+    /// Start the chosen Piper voice (or the default, or any installed one). If Piper isn't
+    /// installed at all, use the Windows voice.
+    pub fn new(preferred: Option<&str>) -> Self {
+        let mut choices: Vec<String> = preferred.into_iter().map(str::to_string).collect();
+        choices.push(DEFAULT_VOICE.to_string());
+        choices.extend(installed());
+        for model in choices {
+            if let Some(p) = piper::PiperVoice::start(&model) {
+                return Voice::Piper(p);
+            }
+        }
+        Voice::Sapi(sapi::SapiVoice::new())
+    }
+
+    /// Which Piper voice is speaking (None for the Windows voice).
+    pub fn model(&self) -> Option<&str> {
+        match self {
+            Voice::Piper(p) => Some(p.model()),
+            Voice::Sapi(_) => None,
         }
     }
 

@@ -21,6 +21,7 @@ mod sfx;
 mod stars;
 mod versus;
 mod voice;
+mod voicepick;
 mod wav;
 mod who;
 mod winner;
@@ -82,6 +83,8 @@ enum Screen {
     VersusSetup,
     /// Somebody won!
     Winner,
+    /// Picking which voice talks.
+    Voices,
 }
 
 /// Everything the game keeps track of between frames (besides `Ctx`).
@@ -100,6 +103,7 @@ struct App {
     banner: Option<banner::LevelBanner>,
     versus_setup: versus::VersusSetup,
     winner: Option<winner::Winner>,
+    voice_picker: voicepick::VoicePicker,
 }
 
 impl App {
@@ -204,7 +208,7 @@ impl App {
     fn picking_player(&self) -> bool {
         matches!(
             self.screen,
-            Screen::Players | Screen::NewName | Screen::KeepStars(_) | Screen::VersusSetup | Screen::Winner
+            Screen::Players | Screen::NewName | Screen::KeepStars(_) | Screen::VersusSetup | Screen::Winner | Screen::Voices
         )
     }
 
@@ -236,7 +240,26 @@ impl App {
                     self.versus_setup.start(ctx);
                     self.screen = Screen::VersusSetup;
                 }
+                who::Pick::Voice => {
+                    self.voice_picker.start(ctx);
+                    self.screen = Screen::Voices;
+                }
                 who::Pick::Nothing => {}
+            },
+            Screen::Voices => match self.voice_picker.update(ctx) {
+                voicepick::VoicePick::Choose(model) => {
+                    if ctx.voice.model() != Some(model.as_str()) {
+                        ctx.voice = voice::Voice::new(Some(&model));
+                        ctx.voice.set_muted(ctx.muted);
+                        ctx.voice.prepare(&common_phrases());
+                        self.players.voice = Some(model.clone());
+                        self.players.save();
+                    }
+                    let name = voice::display_name(&model);
+                    ctx.voice.say(&format!("Hi! I'm {name}. Let's play!"));
+                }
+                voicepick::VoicePick::Back => self.show_players(ctx),
+                voicepick::VoicePick::Nothing => {}
             },
             Screen::VersusSetup => match self.versus_setup.update(&self.players, ctx) {
                 versus::Setup::Start { first, second, goal } => self.start_versus(first, second, goal, ctx),
@@ -364,6 +387,7 @@ impl App {
         match self.screen {
             Screen::Players => self.picker.draw(&self.players, ctx),
             Screen::VersusSetup => self.versus_setup.draw(&self.players, ctx),
+            Screen::Voices => self.voice_picker.draw(ctx),
             Screen::Winner => {
                 if let Some(w) = &self.winner {
                     w.draw(ctx);
@@ -404,16 +428,26 @@ impl App {
     }
 }
 
+/// Phrases the game says a lot, made ahead of time so they play instantly.
+fn common_phrases() -> Vec<String> {
+    let mut common: Vec<String> = ctx::PRAISE.iter().filter(|s| !s.contains("NAME")).map(|s| s.to_string()).collect();
+    common.extend(games::counting::NUMBER_WORDS.iter().map(|s| s.to_string()));
+    common.extend(art::Paint::ALL.iter().map(|p| p.name().to_string()));
+    common.extend(["Pick a game!", "Pick a level!"].map(String::from));
+    common
+}
+
 #[macroquad::main(window_conf)]
 async fn main() {
     log::start();
     rand::srand(macroquad::miniquad::date::now() as u64);
 
+    let players = players::Players::load();
     let mut ctx = Ctx {
         input: input::Input::default(),
         font: art::load_font(),
         sfx: sfx::Sfx::load().await,
-        voice: voice::Voice::new(),
+        voice: voice::Voice::new(players.voice.as_deref()),
         confetti: fx::Confetti::default(),
         fireworks: fx::Fireworks::default(),
         name: "friend".to_string(),
@@ -442,7 +476,7 @@ async fn main() {
             Box::new(Drawing::new()),
         ],
         menu: menu::Menu::new(),
-        players: players::Players::load(),
+        players,
         current: None,
         name_entry: who::NameEntry::default(),
         picker: who::Picker::default(),
@@ -450,15 +484,14 @@ async fn main() {
         banner: None,
         versus_setup: versus::VersusSetup::default(),
         winner: None,
+        voice_picker: voicepick::VoicePicker::default(),
     };
     let mut taps = input::TapFilter::default();
+    // Frame-time stats for the log (to spot slowdowns): frames, total time, slowest frame.
+    let mut stats = (0u32, 0.0f32, 0.0f32);
 
     // Get common phrases ready in the background so they play instantly later.
-    let mut common: Vec<String> = ctx::PRAISE.iter().filter(|s| !s.contains("NAME")).map(|s| s.to_string()).collect();
-    common.extend(games::counting::NUMBER_WORDS.iter().map(|s| s.to_string()));
-    common.extend(art::Paint::ALL.iter().map(|p| p.name().to_string()));
-    common.extend(["Pick a game!", "Pick a level!"].map(String::from));
-    ctx.voice.prepare(&common);
+    ctx.voice.prepare(&common_phrases());
 
     // `cargo run -- --things` shows every object and shape the games use, in all the colors.
     if std::env::args().any(|a| a == "--things") {
@@ -519,6 +552,11 @@ async fn main() {
     }
     if std::env::args().any(|a| a == "--edit-players") {
         app.picker.start_editing();
+    }
+    // `--voices` opens the voice menu.
+    if std::env::args().any(|a| a == "--voices") {
+        app.voice_picker.start(&mut ctx);
+        app.screen = Screen::Voices;
     }
 
     // `--stars 7` starts with 7 stars; `--show-stars` opens the star panel right away.
@@ -614,5 +652,17 @@ async fn main() {
         log::step("showing the frame");
         next_frame().await;
         log::frame_done();
+
+        let ft = get_frame_time();
+        stats = (stats.0 + 1, stats.1 + ft, stats.2.max(ft));
+        if stats.1 >= 5.0 {
+            log::line(&format!(
+                "speed: {:.0} fps, slowest frame {:.0} ms, on {:?}",
+                stats.0 as f32 / stats.1,
+                stats.2 * 1000.0,
+                app.screen
+            ));
+            stats = (0, 0.0, 0.0);
+        }
     }
 }
